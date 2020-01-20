@@ -37,7 +37,10 @@ catkin_generate_virtualenv(
   #  -vvv
 )
 
-catkin_install_python(PROGRAMS src/mecademic_robot_driver/mecademic_robot_driver.py
+catkin_install_python(
+  PROGRAMS 
+    src/mecademic_robot_driver/mecademic_robot_driver.py
+    src/mecademic_robot_driver/mecademic_robot_feedback.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 install(FILES requirements.txt
