@@ -3,7 +3,7 @@ import rospy
 from geometry_msgs.msg import Pose
 from sensor_msgs.msg import JointState
 from std_msgs.msg import String, Bool, UInt8MultiArray
-from MecademicRobot import RobotController
+from mecademic_pydriver import RobotController
 
 class MecademicRobotROS_Driver():
     """ROS Mecademic Robot Node Class to make a Node for the Mecademic Robot
@@ -30,6 +30,12 @@ class MecademicRobotROS_Driver():
         if activate_and_home:
             self.activate()
             self.home()
+
+        self.robot.SetJointVel(100)
+        self.robot.SetBlending(100)
+
+        self.robot.SetEOB(0)
+        self.robot.SetEOM(0)
 
         rospy.init_node("mecademic_robot_driver")
         self.joint_subscriber  = rospy.Subscriber("MecademicRobot_joint", JointState, self.joint_callback)
@@ -65,22 +71,28 @@ class MecademicRobotROS_Driver():
 
         :param joints: message received from topic containing position and velocity information
         """
+        #print('JCB')
         while(not self.socket_available):               #wait for the socket to be available
+            #print('JCB - wait')
+            return
             pass
         self.socket_available = False                      #Block other processes from using the socket
+        print('JCB - lock')
         if(self.robot.isInError()):
             print('Mecademic is in error, cannot send the command')
             return
 
         #TODO should parse the joint_name string
         if(len(joints.position)==6):
+            #print('JCB - 6')
             #TODO check joint limits
             reply = self.robot.MoveJoints(joints.position[0],joints.position[1],joints.position[2],joints.position[3],joints.position[4],joints.position[5])
         else:
             print('Invalid joints len')
             reply = None
-
+        #print('Command sent!')
         self.socket_available = True                       #Release the socket so other processes can use it
+        print('JCB - unlock')
         if(reply is not None):
             self.reply_publisher.publish(reply)
         
@@ -92,6 +104,7 @@ class MecademicRobotROS_Driver():
         :param pose: message received from topic containing position and orientation information
         """
         while(not self.socket_available):           #wait for socket to become available
+            return
             pass
         self.socket_available = False                  #Block other processes from using the socket while in use
 

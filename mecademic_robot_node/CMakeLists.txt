@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   sensor_msgs
   catkin_virtualenv
+  mecademic_pydriver
 )
 
 catkin_python_setup()
@@ -43,8 +44,8 @@ catkin_install_python(
     src/mecademic_robot_driver/mecademic_robot_feedback.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
-install(FILES requirements.txt
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+#install(FILES requirements.txt
+#  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
 
 

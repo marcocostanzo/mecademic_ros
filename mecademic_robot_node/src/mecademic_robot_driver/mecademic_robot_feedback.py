@@ -1,56 +1,69 @@
 #! /usr/bin/env python3
 import rospy
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import JointState
 
-from MecademicRobot import RobotFeedback
+from mecademic_pydriver import RobotFeedback
 
 class MecademicRobotROS_Feedback():
 
-    def __init__(self, address='192.168.0.100'):
+    def __init__(self, address='192.168.0.100', rosnode_name="mecademic_robot_feedback"):
         """
         Constructor for the ROS MecademicRobotROS Feedback
         """
 
         self.feedback = RobotFeedback(address)
-        
-        if not self.feedback.Connect():
-            raise Exception('MecademicRobotROS_Feedback', 'Connection Fail')
 
-        rospy.init_node("mecademic_robot_feedback")
+        self.joints_name = ["A1","A2","A3","A4","A5","A6"]
+
+        #Connect to the robot
+        self.feedback.connect()
+        print("Robot Connected!")
+
+        rospy.init_node(rosnode_name)
         self.joint_publisher   = rospy.Publisher("mecademic/state/joint_position", JointState, queue_size=1) 
-        self.pose_publisher    = rospy.Publisher("mecademic/state/pose", Pose, queue_size=1)
-
+        self.pose_publisher    = rospy.Publisher("mecademic/state/pose", PoseStamped, queue_size=1)
+    
     def loop(self):
         """
         Continuously publish feedbk
         """
+        rospy.loginfo("Feedback Loop Started")
         while not rospy.is_shutdown():
-            try:
-                # TODO MOD HERE use stamped version
-                self.feedback.getData()
-                joints_fb = JointState()
-                joints_fb.position = self.feedback.joints
-                pose_fb = Pose()
-                pose_fb.position.x = self.feedback.cartesian[0]  
-                pose_fb.position.y = self.feedback.cartesian[1] 
-                pose_fb.position.z = self.feedback.cartesian[2] 
-                # TODO mod here xyz 2 quat
-                #q = quaternion_from_euler(0.0, 0.0, 0.0, 'sxyz')
-                #pose_fb.orientation = Quaternion(*q)
-                pose_fb.orientation.x = self.feedback.cartesian[3] 
-                pose_fb.orientation.y = self.feedback.cartesian[4] 
-                pose_fb.orientation.z = self.feedback.cartesian[5] 
-                self.joint_publisher.publish(joints_fb)
-                self.pose_publisher.publish(pose_fb)
-            except Exception as error:
-                rospy.logerr(str(error))
+            #TODO use stamped messages
+            #TODO Use [m] instead of [mm],
+            #         [rad] instead of [deg],
+            #         quaternion instead of euler
+            #           q = quaternion_from_euler(0.0, 0.0, 0.0, 'sxyz')
+            #           pose_msg.orientation = Quaternion(*q)
+            
+            joints, pose = self.feedback.get_data()
+
+            time_now = rospy.Time.now()
+
+            joints_msg = JointState()
+            joints_msg.position = joints
+            joints_msg.name = self.joints_name
+            joints_msg.header.stamp = time_now
+
+            pose_msg = PoseStamped()
+            pose_msg.pose.position.x = pose[0]  
+            pose_msg.pose.position.y = pose[1] 
+            pose_msg.pose.position.z = pose[2]
+            pose_msg.pose.orientation.x = pose[3] 
+            pose_msg.pose.orientation.y = pose[4] 
+            pose_msg.pose.orientation.z = pose[5] 
+            pose_msg.header.stamp = time_now
+
+            self.joint_publisher.publish(joints_msg)
+            self.pose_publisher.publish(pose_msg)
 
     def __del__(self):
-        """Deconstructor for the Mecademic Robot ROS driver
+        """
+        Deconstructor for the Mecademic Robot ROS driver
         Deactivates the robot and closes socket connection with the robot
         """
-        self.feedback.Disconnect()
+        self.feedback.disconnect()
 
 if __name__ == "__main__":
 
