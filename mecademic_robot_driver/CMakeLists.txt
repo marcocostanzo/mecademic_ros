@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(mecademic_robot_node)
+project(mecademic_robot_driver)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp

@@ -12,15 +12,17 @@ class MecademicRobotROS_Feedback():
         Constructor for the ROS MecademicRobotROS Feedback
         """
 
+        rospy.init_node(rosnode_name)
+
         self.feedback = RobotFeedback(address)
 
         self.joints_name = ["A1","A2","A3","A4","A5","A6"]
 
         #Connect to the robot
+        rospy.loginfo("Conncting to the Robot Feedback Interface...")
         self.feedback.connect()
-        print("Robot Connected!")
+        rospy.loginfo("Robot Feedback Interface!")
 
-        rospy.init_node(rosnode_name)
         self.joint_publisher   = rospy.Publisher("mecademic/state/joint_position", JointState, queue_size=1) 
         self.pose_publisher    = rospy.Publisher("mecademic/state/pose", PoseStamped, queue_size=1)
     

@@ -1,14 +1,14 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>mecademic_robot_node</name>
+  <name>mecademic_robot_driver</name>
   <version>1.0.2</version>
-  <description>The mecademic_robot_node package</description>
+  <description>The mecademic_robot_driver package</description>
 
   <maintainer email="support@mecademic.com">Mecademic</maintainer>
 
   <license>MIT</license>
 
-  <url type="website">https://github.com/Mecademic/ROS/tree/master/catkin_ws/src/mecademic_robot_node</url>
+  <!--url type="website">https://github.com/Mecademic/ROS/tree/master/catkin_ws/src/mecademic_robot_node</url-->
 
   <author email="support@mecademic.com">Mecademic</author>
   <author email="marco.costanzo@unicampania.it">Marco Costanzo</author>
