@@ -4,7 +4,8 @@ from geometry_msgs.msg import Pose
 from sensor_msgs.msg import JointState
 from std_msgs.msg import String, Bool, UInt8MultiArray
 from mecademic_pydriver import RobotController
-from std_srvs import srv
+import std_srvs.srv
+import mecademic_msgs.srv
 
 import threading
 
@@ -50,16 +51,32 @@ class MecademicRobotROS_Driver():
             if home:
                 self.home()
 
-        self.srv_activate = rospy.Service('activate', srv.Trigger, self.activate_srv_cb)
-        self.srv_clear_motion = rospy.Service('clear_motion', srv.Trigger, self.clear_motion_srv_cb)
-        self.srv_deactivate = rospy.Service('deactivate', srv.Trigger, self.deactivate_srv_cb)
+        self.srv_activate = rospy.Service('activate', std_srvs.srv.Trigger, self.activate_srv_cb)
+        self.srv_clear_motion = rospy.Service('clear_motion', std_srvs.srv.Trigger, self.clear_motion_srv_cb)
+        self.srv_deactivate = rospy.Service('deactivate', std_srvs.srv.Trigger, self.deactivate_srv_cb)
         #self.srv_get_conf = rospy.Service('get_conf', TODO, self.get_conf_srv_cb)
         #self.srv_get_status_robot = rospy.Service('get_status_robot', TODO, self.get_status_robot_srv_cb)
-        self.srv_home = rospy.Service('home', srv.Trigger, self.home_srv_cb)
-        self.srv_reset_error = rospy.Service('reset_error', srv.Trigger, self.reset_error_srv_cb)
-        self.srv_resume_motion = rospy.Service('resume_motion', srv.Trigger, self.resume_motion_srv_cb)
-        self.srv_set_eob = rospy.Service('set_eob', srv.SetBool, self.set_eob_srv_cb)
-        self.srv_set_eom = rospy.Service('set_eom', srv.SetBool, self.set_eom_srv_cb)
+        self.srv_home = rospy.Service('home', std_srvs.srv.Trigger, self.home_srv_cb)
+        self.srv_reset_error = rospy.Service('reset_error', std_srvs.srv.Trigger, self.reset_error_srv_cb)
+        self.srv_resume_motion = rospy.Service('resume_motion', std_srvs.srv.Trigger, self.resume_motion_srv_cb)
+        self.srv_set_eob = rospy.Service('set_eob', std_srvs.srv.SetBool, self.set_eob_srv_cb)
+        self.srv_set_eom = rospy.Service('set_eom', std_srvs.srv.SetBool, self.set_eom_srv_cb)
+
+        self.srv_move_joints = rospy.Service('move_joints', mecademic_msgs.srv.MoveJoints, self.move_joints_srv_cb)
+        self.srv_move_lin = rospy.Service('move_lin', mecademic_msgs.srv.MovePose, self.move_lin_srv_cb)
+        self.srv_move_lin_rel_trf = rospy.Service('move_lin_rel_trf', mecademic_msgs.srv.MovePose, self.move_lin_rel_trf_srv_cb)
+        self.srv_move_lin_rel_wrf = rospy.Service('move_lin_rel_wrf', mecademic_msgs.srv.MovePose, self.move_lin_rel_wrf_srv_cb)
+        self.srv_move_pose = rospy.Service('move_pose', mecademic_msgs.srv.MovePose, self.move_pose_srv_cb)
+        #self.srv_set_auto_conf = rospy.Service('move_pose', mecademic_msgs.srv.MovePose, self.move_pose)
+        #self.srv_set_auto_conf = rospy.Service('move_pose', mecademic_msgs.srv.MovePose, self.move_pose)
+        #self.srv_set_auto_conf = rospy.Service('move_pose', mecademic_msgs.srv.MovePose, self.move_pose)
+        #self.srv_set_auto_conf = rospy.Service('move_pose', mecademic_msgs.srv.MovePose, self.move_pose)
+        #self.srv_set_auto_conf = rospy.Service('move_pose', mecademic_msgs.srv.MovePose, self.move_pose)
+        #self.srv_set_auto_conf = rospy.Service('move_pose', mecademic_msgs.srv.MovePose, self.move_pose)
+        #self.srv_set_auto_conf = rospy.Service('move_pose', mecademic_msgs.srv.MovePose, self.move_pose)
+        #self.srv_set_auto_conf = rospy.Service('move_pose', mecademic_msgs.srv.MovePose, self.move_pose)
+        self.srv_set_trf = rospy.Service('set_trf', mecademic_msgs.srv.MovePose, self.set_trf_srv_cb)
+        self.srv_set_wrf = rospy.Service('set_wrf', mecademic_msgs.srv.MovePose, self.set_wrf_srv_cb)
 
     def on_new_messages_received(self, messages):
         """
@@ -154,7 +171,7 @@ class MecademicRobotROS_Driver():
         activate cb
         """
         self.activate()
-        res = srv.TriggerResponse()
+        res = std_srvs.srv.TriggerResponse()
         res.message = "Robot Active"
         res.success = True
         return res
@@ -167,7 +184,7 @@ class MecademicRobotROS_Driver():
             rospy.loginfo("Sending ClearMotion...")
             self.robot.ClearMotion()
             rospy.loginfo("ClearMotion Sent!")
-        res = srv.TriggerResponse()
+        res = std_srvs.srv.TriggerResponse()
         res.message = "Motion Cleared"
         res.success = True
         return res
@@ -177,7 +194,7 @@ class MecademicRobotROS_Driver():
         deactivate cb
         """
         self.deactivate()
-        res = srv.TriggerResponse()
+        res = std_srvs.srv.TriggerResponse()
         res.message = "Robot Deactivated"
         res.success = True
         return res
@@ -192,7 +209,7 @@ class MecademicRobotROS_Driver():
         #     conf = self.robot.GetConf()
         #     rospy.loginfo("GetConf Sent!")
         # #TODO getConf service
-        # res = srv.TriggerResponse()
+        # res = std_srvs.srv.TriggerResponse()
         # res.message = "Motion Cleared"
         # res.success = True
         # return res
@@ -206,7 +223,7 @@ class MecademicRobotROS_Driver():
         # status = self.get_status_robot()
         # rospy.loginfo("GetStatusRobot Sent!")
         # #TODO GetStatusRobot service
-        # res = srv.TriggerResponse()
+        # res = std_srvs.srv.TriggerResponse()
         # res.message = "Motion Cleared"
         # res.success = True
         # return res
@@ -216,7 +233,7 @@ class MecademicRobotROS_Driver():
         home cb
         """
         self.home()
-        res = srv.TriggerResponse()
+        res = std_srvs.srv.TriggerResponse()
         res.message = "Home OK"
         res.success = True
         return res
@@ -229,7 +246,7 @@ class MecademicRobotROS_Driver():
             rospy.loginfo("Sending ResetError...")
             self.robot.ResetError()
             rospy.loginfo("ResetError Sent!")
-        res = srv.TriggerResponse()
+        res = std_srvs.srv.TriggerResponse()
         res.message = "Error Resets"
         res.success = True
         return res
@@ -242,7 +259,7 @@ class MecademicRobotROS_Driver():
             rospy.loginfo("Sending ResumeMotion...")
             self.robot.ResumeMotion()
             rospy.loginfo("ResumeMotion Sent!")
-        res = srv.TriggerResponse()
+        res = std_srvs.srv.TriggerResponse()
         res.message = "Motion Resumed"
         res.success = True
         return res
@@ -259,7 +276,7 @@ class MecademicRobotROS_Driver():
             rospy.loginfo("Sending SetEOB({})...".format(e))
             self.robot.SetEOB(e)
             rospy.loginfo("SetEOB({}) Sent!".format(e))
-        res = srv.SetBoolResponse()
+        res = std_srvs.srv.SetBoolResponse()
         res.message = "SetEOB({}) Sent".format(e)
         res.success = True
         return res
@@ -276,7 +293,7 @@ class MecademicRobotROS_Driver():
             rospy.loginfo("Sending SetEOM({})...".format(e))
             self.robot.SetEOM(e)
             rospy.loginfo("SetEOM({}) Sent!".format(e))
-        res = srv.SetBoolResponse()
+        res = std_srvs.srv.SetBoolResponse()
         res.message = "SetEOM({}) Sent".format(e)
         res.success = True
         return res
@@ -284,7 +301,175 @@ class MecademicRobotROS_Driver():
     ################################################
     ###     SERVICES CB MOTION COMMANDS         ####
     ################################################
+
+    def move_joints_srv_cb(self,req):
+        """
+        Add a move joints command to the robot queue
+        """
+        with self._robot_lock:
+            #rospy.loginfo("Sending MoveJoints...")
+            self.robot.MoveJoints(req.joint_position)
+            #rospy.loginfo("MoveJoints Sent!")
+        res = mecademic_msgs.srv.MoveJointsResponse()
+        res.message = "MoveJoints Sent"
+        res.success = True
+        return res
+
+    def move_lin_srv_cb(self,req):
+        """
+        Add a move lin command to the robot queue
+        """
+        with self._robot_lock:
+            #rospy.loginfo("Sending MoveLin...")
+            self.robot.MoveLin(
+                [req.position.x,req.position.y,req.position.z],
+                [req.orientation.x,req.orientation.y,req.orientation.z]
+                )
+            #rospy.loginfo("MoveLin Sent!")
+        res = mecademic_msgs.srv.MovePoseResponse()
+        res.message = "MoveLin Sent"
+        res.success = True
+        return res
+
+    def move_lin_rel_trf_srv_cb(self,req):
+        """
+        Add a move lin rel trf command to the robot queue
+        """
+        with self._robot_lock:
+            #rospy.loginfo("Sending MoveLinRelTRF...")
+            self.robot.MoveLinRelTRF(
+                [req.position.x,req.position.y,req.position.z],
+                [req.orientation.x,req.orientation.y,req.orientation.z]
+                )
+            #rospy.loginfo("MoveLinRelTRF Sent!")
+        res = mecademic_msgs.srv.MovePoseResponse()
+        res.message = "MoveLinRelTRF Sent"
+        res.success = True
+        return res
+
+    def move_lin_rel_wrf_srv_cb(self,req):
+        """
+        Add a move lin rel wrf command to the robot queue
+        """
+        with self._robot_lock:
+            #rospy.loginfo("Sending MoveLinRelWRF...")
+            self.robot.MoveLinRelWRF(
+                [req.position.x,req.position.y,req.position.z],
+                [req.orientation.x,req.orientation.y,req.orientation.z]
+                )
+            #rospy.loginfo("MoveLinRelWRF Sent!")
+        res = mecademic_msgs.srv.MovePoseResponse()
+        res.message = "MoveLinRelWRF Sent"
+        res.success = True
+        return res
+
+    def move_pose_srv_cb(self,req):
+        """
+        Add a move pose command to the robot queue
+        """
+        with self._robot_lock:
+            #rospy.loginfo("Sending MovePose...")
+            self.robot.MovePose(
+                [req.position.x,req.position.y,req.position.z],
+                [req.orientation.x,req.orientation.y,req.orientation.z]
+                )
+            #rospy.loginfo("MovePose Sent!")
+        res = mecademic_msgs.srv.MovePoseResponse()
+        res.message = "MovePose Sent"
+        res.success = True
+        return res
     
+    def set_auto_conf_srv_cb(self, req):
+        """
+        SetAutoConf cb
+        """
+        if req.data:
+            e = 1
+        else:
+            e = 0
+        with self._robot_lock:
+            rospy.loginfo("Sending SetAutoConf({})...".format(e))
+            self.robot.SetAutoConf(e)
+            rospy.loginfo("SetAutoConf({}) Sent!".format(e))
+        res = std_srvs.srv.SetBoolResponse()
+        res.message = "SetAutoConf({}) Sent".format(e)
+        res.success = True
+        return res
+
+    def set_blending_srv_cb(self, req):
+        """
+
+        """
+        raise NotImplementedError
+
+    def set_cart_acc_srv_cb(self, req):
+        """
+
+        """
+        raise NotImplementedError
+
+    def set_cart_ang_vel_srv_cb(self, req):
+        """
+
+        """
+        raise NotImplementedError
+
+    def set_cart_lin_vel_srv_cb(self, req):
+        """
+
+        """
+        raise NotImplementedError
+
+    def set_conf_srv_cb(self, req):
+        """
+
+        """
+        raise NotImplementedError
+
+    def set_joint_acc_srv_cb(self, req):
+        """
+
+        """
+        raise NotImplementedError
+
+    def set_joint_vel_srv_cb(self, req):
+        """
+
+        """
+        raise NotImplementedError
+
+    def set_trf_srv_cb(self,req):
+        """
+        Add a set trf command to the robot queue
+        """
+        with self._robot_lock:
+            #rospy.loginfo("Sending SetTRF...")
+            self.robot.SetTRF(
+                [req.position.x,req.position.y,req.position.z],
+                [req.orientation.x,req.orientation.y,req.orientation.z]
+                )
+            #rospy.loginfo("SetTRF Sent!")
+        res = mecademic_msgs.srv.MovePoseResponse()
+        res.message = "SetTRF Sent"
+        res.success = True
+        return res
+
+    def set_wrf_srv_cb(self,req):
+        """
+        Add a set trf command to the robot queue
+        """
+        with self._robot_lock:
+            #rospy.loginfo("Sending SetWRF...")
+            self.robot.SetWRF(
+                [req.position.x,req.position.y,req.position.z],
+                [req.orientation.x,req.orientation.y,req.orientation.z]
+                )
+            #rospy.loginfo("SetWRF Sent!")
+        res = mecademic_msgs.srv.MovePoseResponse()
+        res.message = "SetWRF Sent"
+        res.success = True
+        return res
+
     # DEL
     def __del__(self):
         """

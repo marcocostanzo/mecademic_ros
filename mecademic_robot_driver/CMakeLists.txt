@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   catkin_virtualenv
   mecademic_pydriver
+  mecademic_msgs
 )
 
 catkin_python_setup()
@@ -20,6 +21,7 @@ catkin_package(
   std_msgs
   geometry_msgs
   sensor_msgs
+  mecademic_msgs
 )
 
 catkin_generate_virtualenv(

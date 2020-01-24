@@ -30,9 +30,8 @@
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
 
-  <build_depend>mecademic_pydriver</build_depend>
-  <build_export_depend>mecademic_pydriver</build_export_depend>
-  <exec_depend>mecademic_pydriver</exec_depend>
+  <depend>mecademic_pydriver</depend>
+  <depend>mecademic_msgs</depend>
 
   <build_depend>catkin_virtualenv</build_depend>
 
