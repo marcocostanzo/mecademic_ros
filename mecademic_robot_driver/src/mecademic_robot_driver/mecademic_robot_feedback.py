@@ -39,7 +39,7 @@ class MecademicRobotROS_Feedback():
             #           q = quaternion_from_euler(0.0, 0.0, 0.0, 'sxyz')
             #           pose_msg.orientation = Quaternion(*q)
             
-            joints, pose = self.feedback.get_data()
+            joints, pose = self.feedback.get_data(timeout=1.0)
 
             time_now = rospy.Time.now()
 
