@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python
 import rospy
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import JointState
@@ -60,15 +60,23 @@ class MecademicRobotROS_Feedback():
             self.joint_publisher.publish(joints_msg)
             self.pose_publisher.publish(pose_msg)
 
+    def release_resources(self):
+        """
+        Closes socket connection with the robot
+        """
+        self.feedback.disconnect()
+
     def __del__(self):
         """
         Deconstructor for the Mecademic Robot ROS driver
-        Deactivates the robot and closes socket connection with the robot
         """
-        self.feedback.disconnect()
+        self.release_resources()
 
 if __name__ == "__main__":
 
     mecademic_ros_fb = MecademicRobotROS_Feedback()
     
-    mecademic_ros_fb.loop()
+    try:
+        mecademic_ros_fb.loop()
+    finally:
+        mecademic_ros_fb.release_resources()

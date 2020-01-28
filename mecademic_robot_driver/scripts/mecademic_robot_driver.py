@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python
 import rospy
 from geometry_msgs.msg import Pose
 from sensor_msgs.msg import JointState
@@ -494,24 +494,28 @@ class MecademicRobotROS_Driver():
         res.success = True
         return res
 
+    def release_resources(self):
+        """
+        Deactivates the robot and closes socket connection with the robot
+        """
+        self.robot.DeactivateRobot()
+        self.robot.disconnect()
+
     # DEL
     def __del__(self):
         """
         Deconstructor for the Mecademic Robot ROS driver
         Deactivates the robot and closes socket connection with the robot
         """
-
-        self.robot.DeactivateRobot()
-
-        #rospy.loginfo('Disconnecting...')
-        self.robot.disconnect()
-        #rospy.loginfo('Robot Disonnected')
+        print("del____")
+        self.release_resources()
         
 
 if __name__ == "__main__":
 
     mecademic_ros_driver = MecademicRobotROS_Driver()
 
-    mecademic_ros_driver.loop_on_log()
-    #rospy.spin()
-
+    try:
+        mecademic_ros_driver.loop_on_log()
+    finally:
+        mecademic_ros_driver.release_resources()

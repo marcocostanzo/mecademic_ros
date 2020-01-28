@@ -1,2 +1,0 @@
-
-git+git://github.com/marcocostanzo/mecademic_pydriver@master#egg=mecademic_pydriver

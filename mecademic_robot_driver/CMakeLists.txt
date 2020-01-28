@@ -7,7 +7,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   geometry_msgs
   sensor_msgs
-  catkin_virtualenv
+  #catkin_virtualenv
   mecademic_pydriver
   mecademic_msgs
 )
@@ -16,7 +16,7 @@ catkin_python_setup()
 
 catkin_package(
   CATKIN_DEPENDS 
-  roscpp
+  #roscpp
   rospy 
   std_msgs
   geometry_msgs
@@ -24,26 +24,26 @@ catkin_package(
   mecademic_msgs
 )
 
-catkin_generate_virtualenv(
-  # Select an alternative version of the python interpreter - it must be installed on the system. Minor version is optional.
-  PYTHON_VERSION 3.6  # Default 2
+# catkin_generate_virtualenv(
+#   # Select an alternative version of the python interpreter - it must be installed on the system. Minor version is optional.
+#   PYTHON_VERSION 3.6  # Default 2
 
-  # Choose not to use underlying system packages. This excludes any python packages installed by apt or system-pip from the environment.
-  USE_SYSTEM_PACKAGES TRUE  # Default TRUE
+#   # Choose not to use underlying system packages. This excludes any python packages installed by apt or system-pip from the environment.
+#   USE_SYSTEM_PACKAGES TRUE  # Default TRUE
 
-  # Disable including pip requirements from catkin dependencies of this package.
-  ISOLATE_REQUIREMENTS FALSE  # Default FALSE
+#   # Disable including pip requirements from catkin dependencies of this package.
+#   ISOLATE_REQUIREMENTS FALSE  # Default FALSE
 
-  # Provide extra arguments to the underlying pip invocation
-  #EXTRA_PIP_ARGS
-  #  --no-binary=:all:
-  #  -vvv
-)
+#   # Provide extra arguments to the underlying pip invocation
+#   #EXTRA_PIP_ARGS
+#   #  --no-binary=:all:
+#   #  -vvv
+# )
 
 catkin_install_python(
   PROGRAMS 
-    src/mecademic_robot_driver/mecademic_robot_driver.py
-    src/mecademic_robot_driver/mecademic_robot_feedback.py
+    scripts/mecademic_robot_driver.py
+    scripts/mecademic_robot_feedback.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 #install(FILES requirements.txt
