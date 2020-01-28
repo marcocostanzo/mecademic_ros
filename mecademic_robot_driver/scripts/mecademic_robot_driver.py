@@ -205,6 +205,7 @@ class MecademicRobotROS_Driver():
         res.status.pause_motion = status['pm']
         res.status.eob = status['eob']
         res.status.eom = status['eom']
+        res.status.header.stamp = rospy.Time.now()
         return res
 
     def home_srv_cb(self, req):

@@ -2,6 +2,7 @@
 import rospy
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import JointState
+from mecademic_msgs.msg import StatusRobot
 
 from mecademic_pydriver import RobotFeedback
 
@@ -32,7 +33,8 @@ class MecademicRobotROS_Feedback():
 
         self.joint_publisher   = rospy.Publisher("mecademic/state/joint_position", JointState, queue_size=1) 
         self.pose_publisher    = rospy.Publisher("mecademic/state/pose", PoseStamped, queue_size=1)
-    
+        self.robot_status_publisher = rospy.Publisher("mecademic/state/status_robot", StatusRobot, queue_size=1)
+
     def loop(self):
         """
         Continuously publish feedbk
@@ -46,26 +48,40 @@ class MecademicRobotROS_Feedback():
             #           q = quaternion_from_euler(0.0, 0.0, 0.0, 'sxyz')
             #           pose_msg.orientation = Quaternion(*q)
             
-            joints, pose = self.feedback.get_data(timeout=1.0)
+            joints, pose, robot_status = self.feedback.get_data(timeout=1.0)
 
             time_now = rospy.Time.now()
 
-            joints_msg = JointState()
-            joints_msg.position = joints
-            joints_msg.name = self.joints_name
-            joints_msg.header.stamp = time_now
+            if joints:
+                joints_msg = JointState()
+                joints_msg.position = joints
+                joints_msg.name = self.joints_name
+                joints_msg.header.stamp = time_now
+                self.joint_publisher.publish(joints_msg)
 
-            pose_msg = PoseStamped()
-            pose_msg.pose.position.x = pose[0]  
-            pose_msg.pose.position.y = pose[1] 
-            pose_msg.pose.position.z = pose[2]
-            pose_msg.pose.orientation.x = pose[3] 
-            pose_msg.pose.orientation.y = pose[4] 
-            pose_msg.pose.orientation.z = pose[5] 
-            pose_msg.header.stamp = time_now
+            if pose:
+                pose_msg = PoseStamped()
+                pose_msg.pose.position.x = pose[0]  
+                pose_msg.pose.position.y = pose[1] 
+                pose_msg.pose.position.z = pose[2]
+                pose_msg.pose.orientation.x = pose[3] 
+                pose_msg.pose.orientation.y = pose[4] 
+                pose_msg.pose.orientation.z = pose[5] 
+                pose_msg.header.stamp = time_now
+                self.pose_publisher.publish(pose_msg)
 
-            self.joint_publisher.publish(joints_msg)
-            self.pose_publisher.publish(pose_msg)
+            if robot_status:
+                status_robot_msg = StatusRobot()
+                status_robot_msg.activation_state = robot_status['as']
+                status_robot_msg.homing_state = robot_status['hs']
+                status_robot_msg.simulation = robot_status['sm']
+                status_robot_msg.error_state = robot_status['es']
+                status_robot_msg.pause_motion = robot_status['pm']
+                status_robot_msg.eob = robot_status['eob']
+                status_robot_msg.eom = robot_status['eom']
+                status_robot_msg.header.stamp = time_now
+                self.robot_status_publisher.publish(status_robot_msg)
+
 
     def release_resources(self):
         """
