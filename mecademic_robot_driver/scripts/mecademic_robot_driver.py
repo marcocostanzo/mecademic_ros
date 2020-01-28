@@ -10,21 +10,26 @@ import mecademic_msgs.srv
 import threading
 
 class MecademicRobotROS_Driver():
-    """ROS Mecademic Robot Node Class to make a Node for the Mecademic Robot
-
-    Attributes:
-        subscriber: ROS subscriber to send command to the Mecademic Robot through a topic
-        publisher: ROS publisher to place replies from the Mecademic Robot in a topic 
-        MecademicRobot : driver to control the MecademicRobot Robot
+    """
+    ROS Mecademic Robot Driver Node Class to make a Control Node for the Mecademic Robot
     """
     def __init__(
         self, 
-        address='192.168.0.100', 
+        ip_address='192.168.0.100', 
         rosnode_name="mecademic_robot_driver",
         activate=True, 
         home=True
         ):
-        """Constructor for the ROS MecademicRobot Driver
+        """
+        Constructor for the ROS MecademicRobot Driver
+        ip_address: str
+            Ip address of the robot
+        rosnode_name: str
+            name to use for the ros node
+        activate: bool
+            If activate the robot during construction of the object
+        home: bool
+            If home the robot during construction of the object (only if activate=True)
         """
 
         #Lock
@@ -35,7 +40,7 @@ class MecademicRobotROS_Driver():
         self.pub_log = rospy.Publisher("mecademic_log",String,queue_size=50)
 
         self.robot = RobotController( 
-            address, 
+            ip_address, 
             #socket_timeout=0.1,
             #motion_commands_response_timeout=0.001,
             #log_size=100, 
@@ -513,7 +518,11 @@ class MecademicRobotROS_Driver():
 
 if __name__ == "__main__":
 
-    mecademic_ros_driver = MecademicRobotROS_Driver()
+    ip_address = rospy.get_param('ip_address', '192.168.0.100')
+    activate = rospy.get_param('activate', True)
+    home = rospy.get_param('home', True)
+
+    mecademic_ros_driver = MecademicRobotROS_Driver(ip_address=ip_address,activate=activate,home=home)
 
     try:
         mecademic_ros_driver.loop_on_log()

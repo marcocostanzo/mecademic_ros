@@ -6,15 +6,22 @@ from sensor_msgs.msg import JointState
 from mecademic_pydriver import RobotFeedback
 
 class MecademicRobotROS_Feedback():
+    """
+    ROS Mecademic Robot Feedback Node Class to make a Feedback Node for the Mecademic Robot
+    """
 
-    def __init__(self, address='192.168.0.100', rosnode_name="mecademic_robot_feedback"):
+    def __init__(self, ip_address='192.168.0.100', rosnode_name="mecademic_robot_feedback"):
         """
         Constructor for the ROS MecademicRobotROS Feedback
+        ip_address: str
+            Ip address of the robot
+        rosnode_name: str
+            name to use for the ros node
         """
 
         rospy.init_node(rosnode_name)
 
-        self.feedback = RobotFeedback(address)
+        self.feedback = RobotFeedback(ip_address)
 
         self.joints_name = ["A1","A2","A3","A4","A5","A6"]
 
@@ -74,7 +81,9 @@ class MecademicRobotROS_Feedback():
 
 if __name__ == "__main__":
 
-    mecademic_ros_fb = MecademicRobotROS_Feedback()
+    ip_address = rospy.get_param('ip_address', '192.168.0.100')
+
+    mecademic_ros_fb = MecademicRobotROS_Feedback(ip_address=ip_address)
     
     try:
         mecademic_ros_fb.loop()
