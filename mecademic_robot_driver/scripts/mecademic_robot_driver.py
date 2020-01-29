@@ -66,6 +66,7 @@ class MecademicRobotROS_Driver():
         self.srv_resume_motion = rospy.Service('resume_motion', std_srvs.srv.Trigger, self.resume_motion_srv_cb)
         self.srv_set_eob = rospy.Service('set_eob', std_srvs.srv.SetBool, self.set_eob_srv_cb)
         self.srv_set_eom = rospy.Service('set_eom', std_srvs.srv.SetBool, self.set_eom_srv_cb)
+        self.srv_set_monitoring_interval = rospy.Service('set_monitoring_interval', mecademic_msgs.srv.SetValue, self.set_monitoring_interval_srv_cb)
 
         self.srv_move_joints = rospy.Service('move_joints', mecademic_msgs.srv.SetJoints, self.move_joints_srv_cb)
         self.srv_move_lin = rospy.Service('move_lin', mecademic_msgs.srv.SetPose, self.move_lin_srv_cb)
@@ -275,6 +276,19 @@ class MecademicRobotROS_Driver():
             rospy.loginfo("SetEOM({}) Sent!".format(e))
         res = std_srvs.srv.SetBoolResponse()
         res.message = "SetEOM({}) Sent".format(e)
+        res.success = True
+        return res
+
+    def set_monitoring_interval_srv_cb(self, req):
+        """
+        SetEOM cb
+        """
+        with self._robot_lock:
+            rospy.loginfo("Sending SetMonitoringInterval({})...".format(req.value))
+            self.robot.SetMonitoringInterval(req.value)
+            rospy.loginfo("Sending SetMonitoringInterval({}) Sent!".format(req.value))
+        res = mecademic_msgs.srv.SetValueResponse()
+        res.message = "SetMonitoringInterval({}) Sent".format(req.value)
         res.success = True
         return res
 
