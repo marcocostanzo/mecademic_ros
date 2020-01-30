@@ -16,9 +16,7 @@ class MecademicRobotROS_Driver():
     def __init__(
         self, 
         ip_address='192.168.0.100', 
-        rosnode_name="mecademic_robot_driver",
-        activate=True, 
-        home=True
+        rosnode_name="mecademic_robot_driver"
         ):
         """
         Constructor for the ROS MecademicRobot Driver
@@ -26,10 +24,6 @@ class MecademicRobotROS_Driver():
             Ip address of the robot
         rosnode_name: str
             name to use for the ros node
-        activate: bool
-            If activate the robot during construction of the object
-        home: bool
-            If home the robot during construction of the object (only if activate=True)
         """
 
         #Lock
@@ -37,7 +31,7 @@ class MecademicRobotROS_Driver():
 
         rospy.init_node(rosnode_name)
 
-        self.pub_log = rospy.Publisher("mecademic_log",String,queue_size=50)
+        self.pub_log = rospy.Publisher("log",String,queue_size=50)
 
         self.robot = RobotController( 
             ip_address, 
@@ -47,6 +41,14 @@ class MecademicRobotROS_Driver():
             on_new_messages_received=self.on_new_messages_received
         )
 
+    def setup(self,activate=True,home=True):
+        """
+        Setup the robot and ROS interface
+        activate: bool
+            If activate the robot during setup of the object
+        home: bool
+            If home the robot during setup of the object (only if activate=True)
+        """
         #Connect to the control interface
         rospy.loginfo("Conncting to the Robot Control Interface...")
         self.robot.connect()
@@ -67,8 +69,9 @@ class MecademicRobotROS_Driver():
         self.srv_set_eob = rospy.Service('set_eob', std_srvs.srv.SetBool, self.set_eob_srv_cb)
         self.srv_set_eom = rospy.Service('set_eom', std_srvs.srv.SetBool, self.set_eom_srv_cb)
         self.srv_set_monitoring_interval = rospy.Service('set_monitoring_interval', mecademic_msgs.srv.SetValue, self.set_monitoring_interval_srv_cb)
-
+ 
         self.srv_move_joints = rospy.Service('move_joints', mecademic_msgs.srv.SetJoints, self.move_joints_srv_cb)
+        self.sub_move_joints_vel = rospy.Subscriber('command/joints_vel', mecademic_msgs.msg.Joints, callback=self.move_joints_vel_sub_cb, queue_size=1,buff_size=2**20)
         self.srv_move_lin = rospy.Service('move_lin', mecademic_msgs.srv.SetPose, self.move_lin_srv_cb)
         self.srv_move_lin_rel_trf = rospy.Service('move_lin_rel_trf', mecademic_msgs.srv.SetPose, self.move_lin_rel_trf_srv_cb)
         self.srv_move_lin_rel_wrf = rospy.Service('move_lin_rel_wrf', mecademic_msgs.srv.SetPose, self.move_lin_rel_wrf_srv_cb)
@@ -83,6 +86,7 @@ class MecademicRobotROS_Driver():
         self.srv_set_joint_vel = rospy.Service('set_joint_vel', mecademic_msgs.srv.SetValue, self.set_joint_vel_srv_cb)
         self.srv_set_trf = rospy.Service('set_trf', mecademic_msgs.srv.SetPose, self.set_trf_srv_cb)
         self.srv_set_wrf = rospy.Service('set_wrf', mecademic_msgs.srv.SetPose, self.set_wrf_srv_cb)
+        self.srv_set_vel_timeout = rospy.Service('set_vel_timeout', mecademic_msgs.srv.SetValue, self.set_vel_timeout_srv_cb)
 
     def on_new_messages_received(self, messages):
         """
@@ -302,12 +306,21 @@ class MecademicRobotROS_Driver():
         """
         with self._robot_lock:
             #rospy.loginfo("Sending MoveJoints...")
-            self.robot.MoveJoints(req.joint_position)
+            self.robot.MoveJoints(req.joints)
             #rospy.loginfo("MoveJoints Sent!")
         res = mecademic_msgs.srv.SetJointsResponse()
         res.message = "MoveJoints Sent"
         res.success = True
         return res
+
+    def move_joints_vel_sub_cb(self,msg):
+        """
+        Send a move joint vel command
+        """
+        with self._robot_lock:
+            #rospy.loginfo("Sending MoveJoints...")
+            self.robot.MoveJointsVel(msg.joints)
+            #rospy.loginfo("MoveJoints Sent!")
 
     def move_lin_srv_cb(self,req):
         """
@@ -514,12 +527,28 @@ class MecademicRobotROS_Driver():
         res.success = True
         return res
 
+    def set_vel_timeout_srv_cb(self, req):
+        """
+        SetVelTimeout cb
+        """
+        with self._robot_lock:
+            rospy.loginfo("Sending SetVelTimeout({})...".format(req.value))
+            self.robot.SetVelTimeout(req.value)
+            rospy.loginfo("Sending SetVelTimeout({}) Sent!".format(req.value))
+        res = mecademic_msgs.srv.SetValueResponse()
+        res.message = "SetVelTimeout({}) Sent".format(req.value)
+        res.success = True
+        return res
+
     def release_resources(self):
         """
         Deactivates the robot and closes socket connection with the robot
         """
-        self.robot.DeactivateRobot()
-        self.robot.disconnect()
+        if self.robot:
+            try:
+                self.robot.DeactivateRobot()
+            finally:
+                self.robot.disconnect()
 
     # DEL
     def __del__(self):
@@ -527,7 +556,6 @@ class MecademicRobotROS_Driver():
         Deconstructor for the Mecademic Robot ROS driver
         Deactivates the robot and closes socket connection with the robot
         """
-        print("del____")
         self.release_resources()
         
 
@@ -537,9 +565,9 @@ if __name__ == "__main__":
     activate = rospy.get_param('activate', True)
     home = rospy.get_param('home', True)
 
-    mecademic_ros_driver = MecademicRobotROS_Driver(ip_address=ip_address,activate=activate,home=home)
-
     try:
+        mecademic_ros_driver = MecademicRobotROS_Driver(ip_address=ip_address)
+        mecademic_ros_driver.setup(activate=activate,home=home)
         mecademic_ros_driver.loop_on_log()
     finally:
         mecademic_ros_driver.release_resources()

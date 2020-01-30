@@ -31,9 +31,9 @@ class MecademicRobotROS_Feedback():
         self.feedback.connect()
         rospy.loginfo("Robot Feedback Interface!")
 
-        self.joint_publisher   = rospy.Publisher("mecademic/state/joint_position", JointState, queue_size=1) 
-        self.pose_publisher    = rospy.Publisher("mecademic/state/pose", PoseStamped, queue_size=1)
-        self.robot_status_publisher = rospy.Publisher("mecademic/state/status_robot", StatusRobot, queue_size=1)
+        self.joint_publisher   = rospy.Publisher("state/joint_position", JointState, queue_size=1) 
+        self.pose_publisher    = rospy.Publisher("state/pose", PoseStamped, queue_size=1)
+        self.robot_status_publisher = rospy.Publisher("state/status_robot", StatusRobot, queue_size=1,latch=True)
 
     def loop(self):
         """

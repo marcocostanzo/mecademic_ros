@@ -16,12 +16,17 @@ catkin_python_setup()
 
 catkin_package(
   CATKIN_DEPENDS 
-  #roscpp
+  roscpp
   rospy 
   std_msgs
   geometry_msgs
   sensor_msgs
   mecademic_msgs
+)
+
+include_directories(
+ include
+ ${catkin_INCLUDE_DIRS}
 )
 
 # catkin_generate_virtualenv(
@@ -48,6 +53,16 @@ catkin_install_python(
 
 #install(FILES requirements.txt
 #  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+
+#########################################
+add_executable(joints_controller
+  src/joints_controller_node.cpp
+)
+add_dependencies(joints_controller ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(joints_controller
+  ${catkin_LIBRARIES}
+)
+#########################################
 
 
 

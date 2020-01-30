@@ -1,4 +1,4 @@
-float64[] joint_position
+float64[] joints
 ---
 bool success
 string message

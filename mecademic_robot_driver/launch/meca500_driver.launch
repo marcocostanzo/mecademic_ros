@@ -1,0 +1,34 @@
+<launch>
+
+<group ns="meca500">
+
+<node 
+    name="robot_driver"  
+    pkg="mecademic_robot_driver" 
+    type="mecademic_robot_driver.py" 
+    output="screen"
+>
+    <!--- TODO param name="num_joints" type="int" value="$(arg num_joints)"/-->
+</node>
+
+<node 
+    name="robot_feedback"  
+    pkg="mecademic_robot_driver" 
+    type="mecademic_robot_feedback.py" 
+    output="screen"
+>
+    <!--- TODO param name="num_joints" type="int" value="$(arg num_joints)"/-->
+</node>
+
+<node 
+    name="joints_controller"  
+    pkg="mecademic_robot_driver" 
+    type="joints_controller" 
+    output="screen"
+>
+    <!--- TODO param name="num_joints" type="int" value="$(arg num_joints)"/-->
+</node>
+
+</group>
+
+</launch>
