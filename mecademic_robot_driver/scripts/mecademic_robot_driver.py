@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import rospy
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, TwistStamped
 from sensor_msgs.msg import JointState
 from std_msgs.msg import String, Bool, UInt8MultiArray
 from mecademic_pydriver import RobotController
@@ -71,10 +71,11 @@ class MecademicRobotROS_Driver():
         self.srv_set_monitoring_interval = rospy.Service('set_monitoring_interval', mecademic_msgs.srv.SetValue, self.set_monitoring_interval_srv_cb)
  
         self.srv_move_joints = rospy.Service('move_joints', mecademic_msgs.srv.SetJoints, self.move_joints_srv_cb)
-        self.sub_move_joints_vel = rospy.Subscriber('command/joints_vel', mecademic_msgs.msg.Joints, callback=self.move_joints_vel_sub_cb, queue_size=1,buff_size=2**20)
+        self.sub_move_joints_vel = rospy.Subscriber('command/joints_vel', mecademic_msgs.msg.Joints, callback=self.move_joints_vel_sub_cb, queue_size=1)
         self.srv_move_lin = rospy.Service('move_lin', mecademic_msgs.srv.SetPose, self.move_lin_srv_cb)
         self.srv_move_lin_rel_trf = rospy.Service('move_lin_rel_trf', mecademic_msgs.srv.SetPose, self.move_lin_rel_trf_srv_cb)
         self.srv_move_lin_rel_wrf = rospy.Service('move_lin_rel_wrf', mecademic_msgs.srv.SetPose, self.move_lin_rel_wrf_srv_cb)
+        self.sub_move_lin_vel_trf = rospy.Subscriber('command/vel_trf', TwistStamped, callback=self.move_lin_vel_trf_sub_cb, queue_size=1)
         self.srv_move_pose = rospy.Service('move_pose', mecademic_msgs.srv.SetPose, self.move_pose_srv_cb)
         self.srv_set_auto_conf = rospy.Service('set_auto_conf', std_srvs.srv.SetBool, self.set_auto_conf_srv_cb)
         self.srv_set_blending = rospy.Service('set_blending', mecademic_msgs.srv.SetValue, self.set_blending_srv_cb)
@@ -318,9 +319,9 @@ class MecademicRobotROS_Driver():
         Send a move joint vel command
         """
         with self._robot_lock:
-            #rospy.loginfo("Sending MoveJoints...")
+            #rospy.loginfo("Sending MoveJointsVel...")
             self.robot.MoveJointsVel(msg.joints)
-            #rospy.loginfo("MoveJoints Sent!")
+            #rospy.loginfo("MoveJointsVel Sent!")
 
     def move_lin_srv_cb(self,req):
         """
@@ -369,6 +370,18 @@ class MecademicRobotROS_Driver():
         res.message = "MoveLinRelWRF Sent"
         res.success = True
         return res
+
+    def move_lin_vel_trf_sub_cb(self,msg):
+        """
+        TODO
+        """
+        with self._robot_lock:
+            #rospy.loginfo("Sending MoveLinVelTRF...")
+            self.robot.MoveLinVelTRF(
+                [msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z],
+                [msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z]
+                )
+            #rospy.loginfo("MoveLinVelTRF Sent!")
 
     def move_pose_srv_cb(self,req):
         """
