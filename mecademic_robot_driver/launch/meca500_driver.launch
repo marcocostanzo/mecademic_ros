@@ -1,5 +1,7 @@
 <launch>
 
+<arg name="joints_controller_gains" default="[3.0, 3.0, 3.0, 3.0, 3.0, 3.0]" />
+
 <group ns="meca500">
 
 <node 
@@ -26,7 +28,7 @@
     type="joints_controller" 
     output="screen"
 >
-    <!--- TODO param name="num_joints" type="int" value="$(arg num_joints)"/-->
+    <rosparam param="gains" subst_value="true">$(arg joints_controller_gains)</rosparam>
 </node>
 
 </group>

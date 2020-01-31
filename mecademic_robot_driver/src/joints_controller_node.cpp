@@ -1,10 +1,24 @@
 #include "ros/ros.h"
+#include "signal.h"
 #include "mecademic_msgs/Joints.h"
 #include "sensor_msgs/JointState.h"
 #include "std_srvs/SetBool.h"
 
 #define NUM_JOINTS 6
 #define ZERO_VEL_COMMANDS_TO_SEND 10
+#define DEFAULT_GAINS 3.0
+
+/*
+Patch to avoid c++11 depdendency
+*/
+namespace patch{
+template <typename T>
+std::string to_string(T const& value) {
+    std::stringstream sstr;
+    sstr << value;
+    return sstr.str();
+}
+}
 
 //Enabled
 bool enabled;
@@ -18,6 +32,7 @@ double joints_command[NUM_JOINTS];
 double joints_measure[NUM_JOINTS];
 
 //User fncs
+void mySigintHandler(int sig);
 void pre_stop();
 void pre_start();
 void control_publish();
@@ -86,8 +101,10 @@ bool srv_server_set_enabled_cb(
 
 int main(int argc, char *argv[])
 {
-    //ROS INIT
-    ros::init(argc,argv, "joints_controller");
+    //ROS INIT - Use a coustom signinthandler
+    ros::init(argc,argv, "joints_controller",ros::init_options::NoSigintHandler);
+    signal(SIGINT, mySigintHandler);
+
     ros::NodeHandle nh_private("~");
     ros::NodeHandle nh_public;
 
@@ -97,13 +114,51 @@ int main(int argc, char *argv[])
     //Init vars
     vel_command_msg.joints.resize(NUM_JOINTS);
 
-    //Params TODO ROSPARAMS
-    for(int i=0;i<NUM_JOINTS;i++)
-        gains[i]=3.0;
-    
-    for(int i=0;i<NUM_JOINTS;i++)
-        std::cout << gains[i] << " ";
-    std::cout << std::endl;
+    //Params
+    //gains
+    if(nh_private.hasParam("gains"))
+    {
+        std::vector<double> gains_std;
+        if(!nh_private.getParam("gains", gains_std))
+        {
+            //Param is not std::vector<double>
+            double gain_;
+            if(!nh_private.getParam("gains", gain_))
+            {
+                ROS_ERROR("[MECA JOINTS CONTROLLER] INVALID PARAM TYPE: GAINS");
+                ros::shutdown();
+                exit(-1);
+            }
+            gains_std.push_back(gain_);
+        }
+        if(gains_std.size() == 1)
+        {
+            for(int i=1;i<NUM_JOINTS;i++)
+                gains_std.push_back(gains_std[0]);
+        } 
+        else if(gains_std.size() != NUM_JOINTS)
+        {
+            ROS_ERROR("[MECA JOINTS CONTROLLER] INVALID PARAM: GAINS");
+            ros::shutdown();
+            exit(-1);
+        }
+        for(int i=0;i<NUM_JOINTS;i++)
+            gains[i]=gains_std[i];
+    }
+    else
+    {
+        for(int i=0;i<NUM_JOINTS;i++)
+            gains[i]=DEFAULT_GAINS;
+    }
+
+    //Print the params
+    {
+        std::string output = "[MECA JOINTS CONTROLLER] PARAMS\n";
+        output += "\tGains: ";
+        for(int i=0;i<NUM_JOINTS;i++)
+            output += patch::to_string(gains[i]) + " ";
+        ROS_INFO_STREAM(output);
+    }
 
     //Subscribers
     ros::Subscriber sub_joint_position_command = 
@@ -121,8 +176,6 @@ int main(int argc, char *argv[])
 
     //SPIN
     ros::spin();
-
-    pre_stop();
 
     return 0;
 }
@@ -171,4 +224,14 @@ void control_publish()
     vel_command_msg.header.stamp = ros::Time::now();
 
     pub_joints_velocity_command.publish(vel_command_msg);
+}
+
+/*
+    Handler for CTRL+C
+*/
+void mySigintHandler(int sig){ 
+    if(enabled)
+        pre_stop();
+    enabled = false;
+    ros::shutdown();
 }
