@@ -41,7 +41,7 @@ class MecademicRobotROS_Driver():
             on_new_messages_received=self.on_new_messages_received
         )
 
-    def setup(self,activate=True,home=True):
+    def setup(self,activate=True,home=True, high_performances=False):
         """
         Setup the robot and ROS interface
         activate: bool
@@ -57,6 +57,8 @@ class MecademicRobotROS_Driver():
             self.activate()
             if home:
                 self.home()
+                if high_performances:
+                    self.high_performances()
 
         self.srv_activate = rospy.Service('activate_robot', std_srvs.srv.Trigger, self.activate_srv_cb)
         self.srv_clear_motion = rospy.Service('clear_motion', std_srvs.srv.Trigger, self.clear_motion_srv_cb)
@@ -76,6 +78,7 @@ class MecademicRobotROS_Driver():
         self.srv_move_lin_rel_trf = rospy.Service('move_lin_rel_trf', mecademic_msgs.srv.SetPose, self.move_lin_rel_trf_srv_cb)
         self.srv_move_lin_rel_wrf = rospy.Service('move_lin_rel_wrf', mecademic_msgs.srv.SetPose, self.move_lin_rel_wrf_srv_cb)
         self.sub_move_lin_vel_trf = rospy.Subscriber('command/vel_trf', TwistStamped, callback=self.move_lin_vel_trf_sub_cb, queue_size=1)
+        self.sub_move_lin_vel_wrf = rospy.Subscriber('command/vel_wrf', TwistStamped, callback=self.move_lin_vel_wrf_sub_cb, queue_size=1)
         self.srv_move_pose = rospy.Service('move_pose', mecademic_msgs.srv.SetPose, self.move_pose_srv_cb)
         self.srv_set_auto_conf = rospy.Service('set_auto_conf', std_srvs.srv.SetBool, self.set_auto_conf_srv_cb)
         self.srv_set_blending = rospy.Service('set_blending', mecademic_msgs.srv.SetValue, self.set_blending_srv_cb)
@@ -89,12 +92,24 @@ class MecademicRobotROS_Driver():
         self.srv_set_wrf = rospy.Service('set_wrf', mecademic_msgs.srv.SetPose, self.set_wrf_srv_cb)
         self.srv_set_vel_timeout = rospy.Service('set_vel_timeout', mecademic_msgs.srv.SetValue, self.set_vel_timeout_srv_cb)
 
+    def high_performances(self):
+        """
+        Set all to high performances
+        """
+        self.robot.SetMonitoringInterval(0.001)
+        self.robot.SetJointAcc(100.0)
+        self.robot.SetJointVel(100.0)
+        self.robot.SetVelTimeout(0.04) #Patched
+        self.robot.SetBlending(100.0)
+        self.robot.SetCartAcc(100.0)
+        self.robot.SetCartAngVel(180.0)
+        self.robot.SetCartLinVel(500.0)
+
     def on_new_messages_received(self, messages):
         """
         Callbk called when the log receives new messages from the socket
         Usefull to intercept the messages without remove them from the log
         """
-        # TODO publish on a topic
         for message in messages:
             msg = String()
             msg.data = "[{}][{}]".format(message[0],message[1])
@@ -111,24 +126,6 @@ class MecademicRobotROS_Driver():
                 self.robot.mecademic_log.update_log(wait_for_new_messages=False)
             loop_rate.sleep()
 
-    def activate(self):
-        """
-        Activate the robot
-        """
-        with self._robot_lock:
-            rospy.loginfo("Sending ActivateRobot...")
-            self.robot.ActivateRobot()
-            rospy.loginfo("ActivateRobot Sent!")
-
-    def deactivate(self):
-        """
-        Deactivate the robot
-        """
-        with self._robot_lock:
-            rospy.loginfo("Sending DeactivateRobot...")
-            self.robot.DeactivateRobot()
-            rospy.loginfo("DeactivateRobot Sent!")
-
     def get_status_robot(self):
         """
         Get Status of the robot
@@ -136,15 +133,6 @@ class MecademicRobotROS_Driver():
         with self._robot_lock:
             return self.robot.GetStatusRobot()
     
-    def home(self):
-        """
-        Home the robot
-        """
-        with self._robot_lock:
-            rospy.loginfo("Sending Home...")
-            self.robot.Home()
-            rospy.loginfo("Home Sent!")
-
     ################################################
     ###     SERVICES CB REQUEST COMMANDS        ####
     ################################################
@@ -153,7 +141,10 @@ class MecademicRobotROS_Driver():
         """
         activate cb
         """
-        self.activate()
+        with self._robot_lock:
+            rospy.loginfo("Sending ActivateRobot...")
+            self.robot.ActivateRobot()
+            rospy.loginfo("ActivateRobot Sent!")
         res = std_srvs.srv.TriggerResponse()
         res.message = "Robot Active"
         res.success = True
@@ -176,7 +167,10 @@ class MecademicRobotROS_Driver():
         """
         deactivate cb
         """
-        self.deactivate()
+        with self._robot_lock:
+            rospy.loginfo("Sending DeactivateRobot...")
+            self.robot.DeactivateRobot()
+            rospy.loginfo("DeactivateRobot Sent!")
         res = std_srvs.srv.TriggerResponse()
         res.message = "Robot Deactivated"
         res.success = True
@@ -218,7 +212,10 @@ class MecademicRobotROS_Driver():
         """
         home cb
         """
-        self.home()
+        with self._robot_lock:
+            rospy.loginfo("Sending Home...")
+            self.robot.Home()
+            rospy.loginfo("Home Sent!")
         res = std_srvs.srv.TriggerResponse()
         res.message = "Home OK"
         res.success = True
@@ -306,9 +303,7 @@ class MecademicRobotROS_Driver():
         Add a move joints command to the robot queue
         """
         with self._robot_lock:
-            #rospy.loginfo("Sending MoveJoints...")
             self.robot.MoveJoints(req.joints)
-            #rospy.loginfo("MoveJoints Sent!")
         res = mecademic_msgs.srv.SetJointsResponse()
         res.message = "MoveJoints Sent"
         res.success = True
@@ -319,21 +314,17 @@ class MecademicRobotROS_Driver():
         Send a move joint vel command
         """
         with self._robot_lock:
-            #rospy.loginfo("Sending MoveJointsVel...")
             self.robot.MoveJointsVel(msg.joints)
-            #rospy.loginfo("MoveJointsVel Sent!")
 
     def move_lin_srv_cb(self,req):
         """
         Add a move lin command to the robot queue
         """
         with self._robot_lock:
-            #rospy.loginfo("Sending MoveLin...")
             self.robot.MoveLin(
                 [req.position.x,req.position.y,req.position.z],
                 [req.orientation.x,req.orientation.y,req.orientation.z]
                 )
-            #rospy.loginfo("MoveLin Sent!")
         res = mecademic_msgs.srv.SetPoseResponse()
         res.message = "MoveLin Sent"
         res.success = True
@@ -344,12 +335,10 @@ class MecademicRobotROS_Driver():
         Add a move lin rel trf command to the robot queue
         """
         with self._robot_lock:
-            #rospy.loginfo("Sending MoveLinRelTRF...")
             self.robot.MoveLinRelTRF(
                 [req.position.x,req.position.y,req.position.z],
                 [req.orientation.x,req.orientation.y,req.orientation.z]
                 )
-            #rospy.loginfo("MoveLinRelTRF Sent!")
         res = mecademic_msgs.srv.SetPoseResponse()
         res.message = "MoveLinRelTRF Sent"
         res.success = True
@@ -360,12 +349,10 @@ class MecademicRobotROS_Driver():
         Add a move lin rel wrf command to the robot queue
         """
         with self._robot_lock:
-            #rospy.loginfo("Sending MoveLinRelWRF...")
             self.robot.MoveLinRelWRF(
                 [req.position.x,req.position.y,req.position.z],
                 [req.orientation.x,req.orientation.y,req.orientation.z]
                 )
-            #rospy.loginfo("MoveLinRelWRF Sent!")
         res = mecademic_msgs.srv.SetPoseResponse()
         res.message = "MoveLinRelWRF Sent"
         res.success = True
@@ -376,24 +363,30 @@ class MecademicRobotROS_Driver():
         TODO
         """
         with self._robot_lock:
-            #rospy.loginfo("Sending MoveLinVelTRF...")
             self.robot.MoveLinVelTRF(
                 [msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z],
                 [msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z]
                 )
-            #rospy.loginfo("MoveLinVelTRF Sent!")
+
+    def move_lin_vel_wrf_sub_cb(self,msg):
+        """
+        TODO
+        """
+        with self._robot_lock:
+            self.robot.MoveLinVelWRF(
+                [msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z],
+                [msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z]
+                )
 
     def move_pose_srv_cb(self,req):
         """
         Add a move pose command to the robot queue
         """
         with self._robot_lock:
-            #rospy.loginfo("Sending MovePose...")
             self.robot.MovePose(
                 [req.position.x,req.position.y,req.position.z],
                 [req.orientation.x,req.orientation.y,req.orientation.z]
                 )
-            #rospy.loginfo("MovePose Sent!")
         res = mecademic_msgs.srv.SetPoseResponse()
         res.message = "MovePose Sent"
         res.success = True
@@ -513,12 +506,12 @@ class MecademicRobotROS_Driver():
         Add a set trf command to the robot queue
         """
         with self._robot_lock:
-            #rospy.loginfo("Sending SetTRF...")
+            rospy.loginfo("Sending SetTRF...")
             self.robot.SetTRF(
                 [req.position.x,req.position.y,req.position.z],
                 [req.orientation.x,req.orientation.y,req.orientation.z]
                 )
-            #rospy.loginfo("SetTRF Sent!")
+            rospy.loginfo("SetTRF Sent!")
         res = mecademic_msgs.srv.SetPoseResponse()
         res.message = "SetTRF Sent"
         res.success = True
@@ -529,12 +522,12 @@ class MecademicRobotROS_Driver():
         Add a set trf command to the robot queue
         """
         with self._robot_lock:
-            #rospy.loginfo("Sending SetWRF...")
+            rospy.loginfo("Sending SetWRF...")
             self.robot.SetWRF(
                 [req.position.x,req.position.y,req.position.z],
                 [req.orientation.x,req.orientation.y,req.orientation.z]
                 )
-            #rospy.loginfo("SetWRF Sent!")
+            rospy.loginfo("SetWRF Sent!")
         res = mecademic_msgs.srv.SetPoseResponse()
         res.message = "SetWRF Sent"
         res.success = True
@@ -577,10 +570,11 @@ if __name__ == "__main__":
     ip_address = rospy.get_param('ip_address', '192.168.0.100')
     activate = rospy.get_param('activate', True)
     home = rospy.get_param('home', True)
+    high_performances = rospy.get_param('high_performances', False)
 
     try:
         mecademic_ros_driver = MecademicRobotROS_Driver(ip_address=ip_address)
-        mecademic_ros_driver.setup(activate=activate,home=home)
+        mecademic_ros_driver.setup(activate=activate,home=home,high_performances=high_performances)
         mecademic_ros_driver.loop_on_log()
     finally:
         mecademic_ros_driver.release_resources()
