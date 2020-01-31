@@ -99,15 +99,18 @@ class MecademicRobotROS_Driver():
         self.srv_set_wrf = rospy.Service('set_wrf', mecademic_msgs.srv.SetPose, self.set_wrf_srv_cb)
         self.srv_set_vel_timeout = rospy.Service('set_vel_timeout', mecademic_msgs.srv.SetValue, self.set_vel_timeout_srv_cb)
 
+        # for check_vel_timestamp
+        self.last_vel_timestamp = rospy.Time.now()
+
     def high_performances(self):
         """
         Set all to high performances
         """
         rospy.loginfo("MecademicDriver: High Perf")
-        self.robot.SetMonitoringInterval(0.001)
+        self.robot.SetMonitoringInterval(0.015) # Do not put less
         self.robot.SetJointAcc(100.0)
         self.robot.SetJointVel(100.0)
-        self.robot.SetVelTimeout(0.04) #Patched
+        self.robot.SetVelTimeout(0.200) #Patched
         self.robot.SetBlending(100.0)
         self.robot.SetCartAcc(100.0)
         self.robot.SetCartAngVel(180.0)
@@ -306,6 +309,18 @@ class MecademicRobotROS_Driver():
     ###     SERVICES CB MOTION COMMANDS         ####
     ################################################
 
+    def check_vel_timestamp(self,stamp):
+        """
+        Check and update last vel timestamp
+        TODO: This is for security reason
+        """
+        if stamp > self.last_vel_timestamp:
+            self.last_vel_timestamp = stamp
+            return True
+        else:
+            rospy.logwarn("MecademicRobot::check_vel_timestamp: old timestamp")
+            return False
+
     def move_joints_srv_cb(self,req):
         """
         Add a move joints command to the robot queue
@@ -322,6 +337,8 @@ class MecademicRobotROS_Driver():
         Send a move joint vel command
         """
         with self._robot_lock:
+            if not self.check_vel_timestamp(msg.header.stamp):
+                return
             self.robot.MoveJointsVel(msg.joints)
 
     def move_lin_srv_cb(self,req):
@@ -368,9 +385,11 @@ class MecademicRobotROS_Driver():
 
     def move_lin_vel_trf_sub_cb(self,msg):
         """
-        TODO
+        Send a move lin vel trf command
         """
         with self._robot_lock:
+            if not self.check_vel_timestamp(msg.header.stamp):
+                return
             self.robot.MoveLinVelTRF(
                 [msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z],
                 [msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z]
@@ -378,9 +397,11 @@ class MecademicRobotROS_Driver():
 
     def move_lin_vel_wrf_sub_cb(self,msg):
         """
-        TODO
+        Send a move lin vel wrf command
         """
         with self._robot_lock:
+            if not self.check_vel_timestamp(msg.header.stamp):
+                return
             self.robot.MoveLinVelWRF(
                 [msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z],
                 [msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z]

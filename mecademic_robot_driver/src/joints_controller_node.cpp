@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 
     //Params TODO ROSPARAMS
     for(int i=0;i<NUM_JOINTS;i++)
-        gains[i]=1.0;
+        gains[i]=3.0;
     
     for(int i=0;i<NUM_JOINTS;i++)
         std::cout << gains[i] << " ";
