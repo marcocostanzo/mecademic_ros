@@ -11,7 +11,7 @@ class MecademicRobotROS_Feedback():
     ROS Mecademic Robot Feedback Node Class to make a Feedback Node for the Mecademic Robot
     """
 
-    def __init__(self, ip_address='192.168.0.100', rosnode_name="mecademic_robot_feedback"):
+    def __init__(self, ip_address='192.168.0.100'):
         """
         Constructor for the ROS MecademicRobotROS Feedback
         ip_address: str
@@ -19,8 +19,6 @@ class MecademicRobotROS_Feedback():
         rosnode_name: str
             name to use for the ros node
         """
-
-        rospy.init_node(rosnode_name)
 
         self.feedback = RobotFeedback(ip_address)
 
@@ -97,11 +95,15 @@ class MecademicRobotROS_Feedback():
 
 if __name__ == "__main__":
 
-    ip_address = rospy.get_param('ip_address', '192.168.0.100')
+    rospy.init_node("mecademic_robot_feedback")
+
+    ip_address = rospy.get_param('~ip_address', '192.168.0.100')
 
     mecademic_ros_fb = MecademicRobotROS_Feedback(ip_address=ip_address)
     
     try:
         mecademic_ros_fb.loop()
+    except Exception as e:
+        rospy.logerr("MecademicFeedback: {}".format(e))
     finally:
         mecademic_ros_fb.release_resources()

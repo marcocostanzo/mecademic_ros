@@ -15,8 +15,7 @@ class MecademicRobotROS_Driver():
     """
     def __init__(
         self, 
-        ip_address='192.168.0.100', 
-        rosnode_name="mecademic_robot_driver"
+        ip_address='192.168.0.100'
         ):
         """
         Constructor for the ROS MecademicRobot Driver
@@ -29,8 +28,6 @@ class MecademicRobotROS_Driver():
         #Lock
         self._robot_lock = threading.Lock() 
 
-        rospy.init_node(rosnode_name)
-
         self.pub_log = rospy.Publisher("log",String,queue_size=50)
 
         self.robot = RobotController( 
@@ -41,25 +38,35 @@ class MecademicRobotROS_Driver():
             on_new_messages_received=self.on_new_messages_received
         )
 
-    def setup(self,activate=True,home=True, high_performances=False):
+    def robot_setup(self,activate=True,home=True, high_performance=False):
         """
-        Setup the robot and ROS interface
+        Setup the robot
         activate: bool
             If activate the robot during setup of the object
         home: bool
             If home the robot during setup of the object (only if activate=True)
+        high_performance: bool
+            Set all performance to max (only if home=True)
         """
         #Connect to the control interface
         rospy.loginfo("Conncting to the Robot Control Interface...")
         self.robot.connect()
         rospy.loginfo("Connected to the Robot Control Interface!")
         if activate:
-            self.activate()
+            rospy.loginfo("Activating...")
+            self.robot.ActivateRobot()
+            rospy.loginfo("Activarted!")
             if home:
-                self.home()
-                if high_performances:
+                rospy.loginfo("Homing...")
+                self.robot.Home()
+                rospy.loginfo("Home Done!")
+                if high_performance:
                     self.high_performances()
 
+    def ros_setup(self):
+        """
+        Setup the ROS interface
+        """
         self.srv_activate = rospy.Service('activate_robot', std_srvs.srv.Trigger, self.activate_srv_cb)
         self.srv_clear_motion = rospy.Service('clear_motion', std_srvs.srv.Trigger, self.clear_motion_srv_cb)
         self.srv_deactivate = rospy.Service('deactivate_robot', std_srvs.srv.Trigger, self.deactivate_srv_cb)
@@ -96,6 +103,7 @@ class MecademicRobotROS_Driver():
         """
         Set all to high performances
         """
+        rospy.loginfo("MecademicDriver: High Perf")
         self.robot.SetMonitoringInterval(0.001)
         self.robot.SetJointAcc(100.0)
         self.robot.SetJointVel(100.0)
@@ -553,6 +561,8 @@ class MecademicRobotROS_Driver():
         if self.robot:
             try:
                 self.robot.DeactivateRobot()
+            except Exception as e:
+                rospy.logerr("MecademicDriver: {}".format(e))
             finally:
                 self.robot.disconnect()
 
@@ -567,14 +577,22 @@ class MecademicRobotROS_Driver():
 
 if __name__ == "__main__":
 
-    ip_address = rospy.get_param('ip_address', '192.168.0.100')
-    activate = rospy.get_param('activate', True)
-    home = rospy.get_param('home', True)
-    high_performances = rospy.get_param('high_performances', False)
+    rospy.init_node("mecademic_robot_driver")
 
+    ip_address = rospy.get_param('~ip_address', '192.168.0.100')
+    activate = rospy.get_param('~activate', True)
+    home = rospy.get_param('~home', True)
+    high_performance = rospy.get_param('~high_performance', False)
     try:
         mecademic_ros_driver = MecademicRobotROS_Driver(ip_address=ip_address)
-        mecademic_ros_driver.setup(activate=activate,home=home,high_performances=high_performances)
+        mecademic_ros_driver.robot_setup(
+            activate=activate,
+            home=home,
+            high_performance=high_performance
+            )
+        mecademic_ros_driver.ros_setup()
         mecademic_ros_driver.loop_on_log()
+    except Exception as e:
+        rospy.logerr("MecademicDriver: {}".format(e))
     finally:
         mecademic_ros_driver.release_resources()

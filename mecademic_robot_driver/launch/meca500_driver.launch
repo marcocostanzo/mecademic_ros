@@ -8,7 +8,7 @@
     type="mecademic_robot_driver.py" 
     output="screen"
 >
-    <!--- TODO param name="num_joints" type="int" value="$(arg num_joints)"/-->
+    <param name="high_performance" type="bool" value="True"/>
 </node>
 
 <node 
