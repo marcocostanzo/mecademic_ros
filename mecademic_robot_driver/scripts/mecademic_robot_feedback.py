@@ -6,6 +6,7 @@ from mecademic_msgs.msg import StatusRobot
 
 from mecademic_pydriver import RobotFeedback
 
+
 class MecademicRobotROS_Feedback():
     """
     ROS Mecademic Robot Feedback Node Class to make a Feedback Node for the Mecademic Robot
@@ -22,16 +23,19 @@ class MecademicRobotROS_Feedback():
 
         self.feedback = RobotFeedback(ip_address)
 
-        self.joints_name = ["A1","A2","A3","A4","A5","A6"]
+        self.joints_name = ["A1", "A2", "A3", "A4", "A5", "A6"]
 
-        #Connect to the robot
+        # Connect to the robot
         rospy.loginfo("Conncting to the Robot Feedback Interface...")
         self.feedback.connect()
         rospy.loginfo("Robot Feedback Interface!")
 
-        self.joint_publisher   = rospy.Publisher("state/joint_position", JointState, queue_size=1) 
-        self.pose_publisher    = rospy.Publisher("state/pose", PoseStamped, queue_size=1)
-        self.robot_status_publisher = rospy.Publisher("state/status_robot", StatusRobot, queue_size=1,latch=True)
+        self.joint_publisher = rospy.Publisher(
+            "state/joint_position", JointState, queue_size=1)
+        self.pose_publisher = rospy.Publisher(
+            "state/pose", PoseStamped, queue_size=1)
+        self.robot_status_publisher = rospy.Publisher(
+            "state/status_robot", StatusRobot, queue_size=1, latch=True)
 
     def loop(self):
         """
@@ -39,13 +43,13 @@ class MecademicRobotROS_Feedback():
         """
         rospy.loginfo("Feedback Loop Started")
         while not rospy.is_shutdown():
-            #TODO use stamped messages
-            #TODO Use [m] instead of [mm],
+            # TODO use stamped messages
+            # TODO Use [m] instead of [mm],
             #         [rad] instead of [deg],
             #         quaternion instead of euler
             #           q = quaternion_from_euler(0.0, 0.0, 0.0, 'sxyz')
             #           pose_msg.orientation = Quaternion(*q)
-            
+
             joints, pose, robot_status = self.feedback.get_data(timeout=1.0)
 
             time_now = rospy.Time.now()
@@ -59,12 +63,12 @@ class MecademicRobotROS_Feedback():
 
             if pose:
                 pose_msg = PoseStamped()
-                pose_msg.pose.position.x = pose[0]  
-                pose_msg.pose.position.y = pose[1] 
+                pose_msg.pose.position.x = pose[0]
+                pose_msg.pose.position.y = pose[1]
                 pose_msg.pose.position.z = pose[2]
-                pose_msg.pose.orientation.x = pose[3] 
-                pose_msg.pose.orientation.y = pose[4] 
-                pose_msg.pose.orientation.z = pose[5] 
+                pose_msg.pose.orientation.x = pose[3]
+                pose_msg.pose.orientation.y = pose[4]
+                pose_msg.pose.orientation.z = pose[5]
                 pose_msg.header.stamp = time_now
                 self.pose_publisher.publish(pose_msg)
 
@@ -80,7 +84,6 @@ class MecademicRobotROS_Feedback():
                 status_robot_msg.header.stamp = time_now
                 self.robot_status_publisher.publish(status_robot_msg)
 
-
     def release_resources(self):
         """
         Closes socket connection with the robot
@@ -93,6 +96,7 @@ class MecademicRobotROS_Feedback():
         """
         self.release_resources()
 
+
 if __name__ == "__main__":
 
     rospy.init_node("mecademic_robot_feedback")
@@ -100,7 +104,7 @@ if __name__ == "__main__":
     ip_address = rospy.get_param('~ip_address', '192.168.0.100')
 
     mecademic_ros_fb = MecademicRobotROS_Feedback(ip_address=ip_address)
-    
+
     try:
         mecademic_ros_fb.loop()
     except Exception as e:
