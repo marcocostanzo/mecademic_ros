@@ -22,6 +22,7 @@
 #include "mecademic_msgs/SetJoints.h"
 #include "mecademic_msgs/SetPose.h"
 #include "ros/ros.h"
+#include "sensor_msgs/JointState.h"
 #include "tf2/LinearMath/Matrix3x3.h"
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2/convert.h"
@@ -29,6 +30,12 @@
 
 namespace mecademic
 {
+class timeout_exception : public std::runtime_error
+{
+public:
+  timeout_exception(std::string const& msg) : std::runtime_error(msg) { }
+};
+
 class MecademicROSClient
 {
 protected:
@@ -53,14 +60,13 @@ public:
   /*
    Wait for robot stop to desired pose
   */
-  void wait_pose(const geometry_msgs::Pose& desired_pose, ros::Duration max_wait = ros::Duration(-1));
+  void wait_pose(const geometry_msgs::Pose& desired_pose, const ros::Duration& timeout = ros::Duration(-1), double epsilon_pose = 0.0005, double epsilon_rotation = 0.0005);
 
   /*
    Wait for robot stop to desired joint position
   */
-  void wait_joint_position(const mecademic_msgs::Joints& desired_joints, ros::Duration max_wait = ros::Duration(-1));
-
-  void quaternion2RPY(const geometry_msgs::Quaternion& quaternion, double& roll, double& pitch, double& yaw) const;
+  void wait_joint_position(const mecademic_msgs::Joints& desired_joints,
+                           const ros::Duration& timeout = ros::Duration(-1), double epsilon_joints = 0.01);
 
 };  // endclass
 

@@ -16,13 +16,23 @@
 
 #include "mecademic_rosclient/MecademicROSClient.h"
 
+// Helper functions
+void quaternion2RPY(const geometry_msgs::Quaternion& quaternion, double& roll, double& pitch, double& yaw);
+void joint_position_cb(const sensor_msgs::JointState::ConstPtr& msg, bool deg2rad, sensor_msgs::JointState& out_msg,
+                       bool& msg_arrived);
+double std_vect_distance(const std::vector<double>& v1, const std::vector<double>& v2);
+void pose_cb(const geometry_msgs::PoseStamped::ConstPtr& msg, bool mm2m, bool xyz2quat, bool deg2rad,
+             geometry_msgs::PoseStamped& out_msg, bool& msg_arrived);
+void pose_distance(const geometry_msgs::Pose& p1, const geometry_msgs::Pose& p2, double& position_distance,
+                   double& rotation_distance);
+
 namespace mecademic
 {
 // The node handle should point to the robot namespace
 MecademicROSClient::MecademicROSClient(const ros::NodeHandle& nh) : nh_(nh)
 {
   srv_client_move_lin_ = nh_.serviceClient<mecademic_msgs::SetPose>("move_lin");
-  srv_client_move_joints_ = nh_.serviceClient<mecademic_msgs::SetPose>("move_joints");
+  srv_client_move_joints_ = nh_.serviceClient<mecademic_msgs::SetJoints>("move_joints");
 
   srv_client_move_lin_.waitForExistence();
   srv_client_move_joints_.waitForExistence();
@@ -106,26 +116,159 @@ void MecademicROSClient::move_joints(const mecademic_msgs::Joints& desired_joint
 /*
    Wait for robot stop to desired pose
   */
-void MecademicROSClient::wait_pose(const geometry_msgs::Pose& desired_pose, ros::Duration max_wait)
+void MecademicROSClient::wait_pose(const geometry_msgs::Pose& desired_pose, const ros::Duration& timeout,
+                                   double epsilon_pose, double epsilon_rotation)
 {
-  throw std::runtime_error("MecademicROSClient::wait_pose not implemented");
+  ros::Time start_time = ros::Time::now();
+
+  geometry_msgs::PoseStamped actual_pose;
+  bool msg_arrived;
+  boost::function<void(const geometry_msgs::PoseStamped::ConstPtr& msg)> sub_cb =
+      boost::bind(pose_cb, _1, true, true, true, boost::ref(actual_pose), boost::ref(msg_arrived));
+  ros::Subscriber sub_pose = nh_.subscribe("state/pose", 1, sub_cb);
+
+  msg_arrived = false;
+  while (ros::ok())
+  {
+    if (msg_arrived)
+    {
+      double position_distance, rotation_distance;
+      pose_distance(desired_pose, actual_pose.pose, position_distance, rotation_distance);
+      if (position_distance < epsilon_pose && rotation_distance < epsilon_rotation)
+      {
+        return;
+      }
+      msg_arrived = false;
+    }
+    if (timeout >= ros::Duration(0))
+    {
+      ros::Time current_time = ros::Time::now();
+      if ((current_time - start_time) >= timeout)
+      {
+        throw timeout_exception("MecademicROSClient::wait_pose timeout");
+      }
+    }
+
+    ros::spinOnce();
+  }
 }
 
 /*
  Wait for robot stop to desired joint position
 */
-void MecademicROSClient::wait_joint_position(const mecademic_msgs::Joints& desired_joints, ros::Duration max_wait)
+void MecademicROSClient::wait_joint_position(const mecademic_msgs::Joints& desired_joints, const ros::Duration& timeout,
+                                             double epsilon_joints)
 {
-  throw std::runtime_error("MecademicROSClient::wait_joint_position not implemented");
+  ros::Time start_time = ros::Time::now();
+
+  sensor_msgs::JointState joint_state;
+  bool msg_arrived;
+  boost::function<void(const sensor_msgs::JointState::ConstPtr& msg)> sub_cb =
+      boost::bind(joint_position_cb, _1, true, boost::ref(joint_state), boost::ref(msg_arrived));
+  ros::Subscriber sub_joints = nh_.subscribe("state/joint_position", 1, sub_cb);
+
+  msg_arrived = false;
+  while (ros::ok())
+  {
+    if (msg_arrived)
+    {
+      double distance = std_vect_distance(desired_joints.joints, joint_state.position);
+      if (distance < epsilon_joints)
+      {
+        return;
+      }
+      msg_arrived = false;
+    }
+    if (timeout >= ros::Duration(0))
+    {
+      ros::Time current_time = ros::Time::now();
+      if ((current_time - start_time) >= timeout)
+      {
+        throw timeout_exception("MecademicROSClient::wait_joint_position timeout");
+      }
+    }
+
+    ros::spinOnce();
+  }
 }
 
-void MecademicROSClient::quaternion2RPY(const geometry_msgs::Quaternion& quaternion, double& roll, double& pitch,
-                                        double& yaw) const
+}  // namespace mecademic
+
+void joint_position_cb(const sensor_msgs::JointState::ConstPtr& msg, bool deg2rad, sensor_msgs::JointState& out_msg,
+                       bool& msg_arrived)
+{
+  out_msg = *msg;
+  if (deg2rad)
+  {
+    for (int i = 0; i < out_msg.position.size(); i++)
+    {
+      out_msg.position[i] = out_msg.position[i] * M_PI / 180.0;
+    }
+    for (int i = 0; i < out_msg.velocity.size(); i++)
+    {
+      out_msg.velocity[i] = out_msg.velocity[i] * M_PI / 180.0;
+    }
+    for (int i = 0; i < out_msg.effort.size(); i++)
+    {
+      out_msg.effort[i] = out_msg.effort[i] * M_PI / 180.0;
+    }
+  }
+  msg_arrived = true;
+}
+
+void pose_cb(const geometry_msgs::PoseStamped::ConstPtr& msg, bool mm2m, bool xyz2quat, bool deg2rad,
+             geometry_msgs::PoseStamped& out_msg, bool& msg_arrived)
+{
+  out_msg = *msg;
+  if (mm2m)
+  {
+    out_msg.pose.position.x /= 1000.0;
+    out_msg.pose.position.y /= 1000.0;
+    out_msg.pose.position.z /= 1000.0;
+  }
+  if (xyz2quat)
+  {
+    if (deg2rad)
+    {
+      out_msg.pose.orientation.x *= M_PI / 180.0;
+      out_msg.pose.orientation.y *= M_PI / 180.0;
+      out_msg.pose.orientation.z *= M_PI / 180.0;
+    }
+    // transform from xyz to quaternion
+    tf2::Quaternion tf2_quat;
+    tf2_quat.setRPY(out_msg.pose.orientation.x, out_msg.pose.orientation.y, out_msg.pose.orientation.z);
+    tf2::convert(tf2_quat, out_msg.pose.orientation);
+  }
+  msg_arrived = true;
+}
+
+double std_vect_distance(const std::vector<double>& v1, const std::vector<double>& v2)
+{
+  double distance = 0.0;
+  for (int i = 0; i < v1.size(); i++)
+  {
+    distance = pow(v1[i] - v2[i], 2);
+  }
+  distance = sqrt(distance);
+  return distance;
+}
+
+void pose_distance(const geometry_msgs::Pose& p1, const geometry_msgs::Pose& p2, double& position_distance,
+                   double& rotation_distance)
+{
+  position_distance = sqrt(pow(p1.position.x - p2.position.x, 2) + pow(p1.position.y - p2.position.y, 2) +
+                           pow(p1.position.z - p2.position.z, 2));
+  tf2::Quaternion tf2_quat1;
+  tf2::Quaternion tf2_quat2;
+  tf2::convert(p1.orientation, tf2_quat1);
+  tf2::convert(p2.orientation, tf2_quat2);
+  rotation_distance = fabs(tf2_quat1.angleShortestPath(tf2_quat2));
+}
+
+void quaternion2RPY(const geometry_msgs::Quaternion& quaternion, double& roll, double& pitch, double& yaw)
 {
   tf2::Quaternion tf_quat;
   tf2::convert(quaternion, tf_quat);
   tf2::Matrix3x3 m(tf_quat);
   m.getRPY(roll, pitch, yaw);
 }
-
-}  // namespace mecademic
