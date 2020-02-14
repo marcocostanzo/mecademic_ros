@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 import rospy
-from geometry_msgs.msg import Pose, TwistStamped
+from geometry_msgs.msg import Pose, TwistStamped, TransformStamped
 from sensor_msgs.msg import JointState
 from std_msgs.msg import String, Bool, UInt8MultiArray
 from mecademic_pydriver import RobotController
 import std_srvs.srv
 import mecademic_msgs.srv
+
+import tf2_ros
+import tf
 
 import threading
 
@@ -130,6 +133,8 @@ class MecademicRobotROS_Driver():
             'set_wrf', mecademic_msgs.srv.SetPose, self.set_wrf_srv_cb)
         self.srv_set_vel_timeout = rospy.Service(
             'set_vel_timeout', mecademic_msgs.srv.SetValue, self.set_vel_timeout_srv_cb)
+
+        self.update_tf_wrf()
 
         # for check_vel_timestamp
         self.last_vel_timestamp = rospy.Time.now()
@@ -585,7 +590,8 @@ class MecademicRobotROS_Driver():
 
     def set_wrf_srv_cb(self, req):
         """
-        Add a set trf command to the robot queue
+        Add a set wrf command to the robot queue
+        WARNING! THIS WILL IMMEDIATLY UPDATE THE WRF ON /tf_static
         """
         with self._robot_lock:
             rospy.loginfo("Sending SetWRF...")
@@ -594,10 +600,39 @@ class MecademicRobotROS_Driver():
                 [req.orientation.x, req.orientation.y, req.orientation.z]
             )
             rospy.loginfo("SetWRF Sent!")
+            self.update_tf_wrf([req.position.x, req.position.y, req.position.z],
+                               [req.orientation.x, req.orientation.y, req.orientation.z])
         res = mecademic_msgs.srv.SetPoseResponse()
         res.message = "SetWRF Sent"
         res.success = True
         return res
+
+    def update_tf_wrf(self,position = [0,0,0], orientation=[0,0,0]):
+        """
+        Update the wrf->brf transform on /tf_statuc
+        """
+        self.broadcaster = tf2_ros.StaticTransformBroadcaster()
+
+        quat = tf.transformations.quaternion_from_euler(orientation[0],orientation[1],orientation[2],'sxyz')
+        transform = tf.transformations.concatenate_matrices(tf.transformations.translation_matrix(position),tf.transformations.quaternion_matrix(quat))
+        
+        inversed_transform = tf.transformations.inverse_matrix(transform)
+        tanslation = tf.transformations.translation_from_matrix(inversed_transform)
+        quaternion = tf.transformations.quaternion_from_matrix(inversed_transform)
+
+        static_transformStamped = TransformStamped()
+        static_transformStamped.header.stamp = rospy.Time.now()
+        static_transformStamped.header.frame_id = "meca_wrf"
+        static_transformStamped.child_frame_id = "meca_brf" 
+        static_transformStamped.transform.translation.x = tanslation[0]
+        static_transformStamped.transform.translation.y = tanslation[1]
+        static_transformStamped.transform.translation.z = tanslation[2]
+        static_transformStamped.transform.rotation.x = quaternion[0]
+        static_transformStamped.transform.rotation.y = quaternion[1]
+        static_transformStamped.transform.rotation.z = quaternion[2]
+        static_transformStamped.transform.rotation.w = quaternion[3]        
+   
+        self.broadcaster.sendTransform(static_transformStamped)
 
     def set_vel_timeout_srv_cb(self, req):
         """

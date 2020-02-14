@@ -1,4 +1,13 @@
 <robot name="meca_500_r3" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- FLANGE -->
+  <link name="meca_brf" />
+  <joint name="meca_base_joint" type="fixed">
+    <parent link="meca_brf" />
+    <child link="meca_base_link" />
+    <origin xyz="-0.012 0 0" rpy="0 0 0" />
+  </joint>
+
   <!-- Base link is the center of the robot's bottom plate -->
   <link name="meca_base_link">
     <visual>
@@ -158,4 +167,13 @@
     <axis xyz="1 0 0" />
     <limit effort="10.0" velocity="8.72665" lower="-3.14159" upper="3.14159" />
   </joint>
+
+  <!-- FLANGE -->
+  <link name="meca_flange_link" />
+  <joint name="meca_flange_joint" type="fixed">
+    <parent link="meca_axis_6_link" />
+    <child link="meca_flange_link" />
+    <origin xyz="0 0 0" rpy="0 ${pi/2} 0" />
+  </joint>
+
 </robot>

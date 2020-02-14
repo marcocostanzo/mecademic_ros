@@ -6,6 +6,8 @@ from mecademic_msgs.msg import StatusRobot
 
 from mecademic_pydriver import RobotFeedback
 
+from math import pi as PI
+
 
 class MecademicRobotROS_Feedback():
     """
@@ -23,7 +25,9 @@ class MecademicRobotROS_Feedback():
 
         self.feedback = RobotFeedback(ip_address)
 
-        self.joints_name = ["A1", "A2", "A3", "A4", "A5", "A6"]
+        self.joints_name = ["meca_axis_1_joint", "meca_axis_2_joint", "meca_axis_3_joint",
+                            "meca_axis_4_joint", "meca_axis_5_joint", "meca_axis_6_joint"]
+        self.wrf_frame_id = "meca_wrf"
 
         # Connect to the robot
         rospy.loginfo("Conncting to the Robot Feedback Interface...")
@@ -45,18 +49,23 @@ class MecademicRobotROS_Feedback():
         while not rospy.is_shutdown():
             # TODO use stamped messages
             # TODO Use [m] instead of [mm],
-            #         [rad] instead of [deg],
+            #         [rad] instead of [deg], -> DONE
             #         quaternion instead of euler
             #           q = quaternion_from_euler(0.0, 0.0, 0.0, 'sxyz')
             #           pose_msg.orientation = Quaternion(*q)
+            #         programmatic setup of meca_wrf
 
-            joints, pose, robot_status = self.feedback.get_data(timeout=1.0)
+            joints_deg, pose, robot_status = self.feedback.get_data(
+                timeout=1.0)
 
             time_now = rospy.Time.now()
 
-            if joints:
+            if joints_deg:
+                # TO RAD
+                joints_rad = tuple(joint * PI / 180.0 for joint in joints_deg)
+
                 joints_msg = JointState()
-                joints_msg.position = joints
+                joints_msg.position = joints_rad
                 joints_msg.name = self.joints_name
                 joints_msg.header.stamp = time_now
                 self.joint_publisher.publish(joints_msg)
@@ -70,6 +79,7 @@ class MecademicRobotROS_Feedback():
                 pose_msg.pose.orientation.y = pose[4]
                 pose_msg.pose.orientation.z = pose[5]
                 pose_msg.header.stamp = time_now
+                pose_msg.header.frame_id = self.wrf_frame_id
                 self.pose_publisher.publish(pose_msg)
 
             if robot_status:

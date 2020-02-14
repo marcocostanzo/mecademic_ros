@@ -31,6 +31,11 @@ namespace mecademic
 // The node handle should point to the robot namespace
 MecademicROSClient::MecademicROSClient(const ros::NodeHandle& nh) : nh_(nh)
 {
+  joints_on_fb_are_deg = false;
+  position_on_fb_is_mm = true;
+  orientation_on_fb_is_xyz = true;
+  xyz_on_fb_is_deg = true;
+  
   srv_client_move_lin_ = nh_.serviceClient<mecademic_msgs::SetPose>("move_lin");
   srv_client_move_joints_ = nh_.serviceClient<mecademic_msgs::SetJoints>("move_joints");
 
@@ -113,6 +118,35 @@ void MecademicROSClient::move_joints(const mecademic_msgs::Joints& desired_joint
   }
 }
 
+geometry_msgs::PoseStamped MecademicROSClient::getToolPose(const ros::Duration& timeout)
+{
+  ros::Time start_time = ros::Time::now();
+  geometry_msgs::PoseStamped pose;
+  bool msg_arrived;
+  boost::function<void(const geometry_msgs::PoseStamped::ConstPtr& msg)> sub_cb =
+      boost::bind(pose_cb, _1, position_on_fb_is_mm, orientation_on_fb_is_xyz, xyz_on_fb_is_deg, boost::ref(pose), boost::ref(msg_arrived));
+  ros::Subscriber sub_pose = nh_.subscribe("state/pose", 1, sub_cb);
+  
+  msg_arrived = false;
+  while (ros::ok())
+  {
+    if (msg_arrived)
+    {
+      return pose;
+    }
+    if (timeout >= ros::Duration(0))
+    {
+      ros::Time current_time = ros::Time::now();
+      if ((current_time - start_time) >= timeout)
+      {
+        throw timeout_exception("MecademicROSClient::getToolPose timeout");
+      }
+    }
+    ros::spinOnce();
+  }
+}
+
+
 /*
    Wait for robot stop to desired pose
   */
@@ -124,7 +158,7 @@ void MecademicROSClient::wait_pose(const geometry_msgs::Pose& desired_pose, cons
   geometry_msgs::PoseStamped actual_pose;
   bool msg_arrived;
   boost::function<void(const geometry_msgs::PoseStamped::ConstPtr& msg)> sub_cb =
-      boost::bind(pose_cb, _1, true, true, true, boost::ref(actual_pose), boost::ref(msg_arrived));
+      boost::bind(pose_cb, _1, position_on_fb_is_mm, orientation_on_fb_is_xyz, xyz_on_fb_is_deg, boost::ref(actual_pose), boost::ref(msg_arrived));
   ros::Subscriber sub_pose = nh_.subscribe("state/pose", 1, sub_cb);
 
   msg_arrived = false;
@@ -164,7 +198,7 @@ void MecademicROSClient::wait_joint_position(const mecademic_msgs::Joints& desir
   sensor_msgs::JointState joint_state;
   bool msg_arrived;
   boost::function<void(const sensor_msgs::JointState::ConstPtr& msg)> sub_cb =
-      boost::bind(joint_position_cb, _1, true, boost::ref(joint_state), boost::ref(msg_arrived));
+      boost::bind(joint_position_cb, _1, joints_on_fb_are_deg, boost::ref(joint_state), boost::ref(msg_arrived));
   ros::Subscriber sub_joints = nh_.subscribe("state/joint_position", 1, sub_cb);
 
   msg_arrived = false;

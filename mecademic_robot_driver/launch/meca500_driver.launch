@@ -1,7 +1,12 @@
 <launch>
 
+<arg name="joints_controller" default="false"/>
 <arg name="joints_controller_gains" default="[3.0, 3.0, 3.0, 3.0, 3.0, 3.0]" />
-<arg name="ip_address" default="192.168.2.103" />
+<arg name="ip_address" default="192.168.0.100" />
+<arg name="high_performance" default="false" />
+<arg name="robot_state_publisher" default="true" />
+<arg name="meca500_tf_prefix" default="" />
+<arg name="meca500_description" default="$(find mecademic_description)/urdf/meca_500_r3.urdf.xacro" />
 
 <group ns="meca500">
 
@@ -13,6 +18,7 @@
 >
     <param name="high_performance" type="bool" value="True"/>
     <param name="ip_address" type="string" value="$(arg ip_address)"/>
+    <param name="high_performance" type="bool" value="$(arg high_performance)"/>
 </node>
 
 <node 
@@ -30,9 +36,18 @@
     pkg="mecademic_robot_driver" 
     type="joints_controller" 
     output="screen"
+    if="$(arg joints_controller)"
 >
     <rosparam param="gains" subst_value="true">$(arg joints_controller_gains)</rosparam>
 </node>
+
+<group if="$(arg robot_state_publisher)">
+    <param name="robot_description" command="xacro --inorder $(arg meca500_description)" />
+    <param name="tf_prefix" value="$(arg meca500_tf_prefix)"/>
+    <node name="meca500_state_publisher" pkg="robot_state_publisher" type="state_publisher">
+        <remap from="joint_states" to="state/joint_position"/>
+    </node>
+</group>
 
 </group>
 

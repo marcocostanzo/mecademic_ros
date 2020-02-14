@@ -43,6 +43,11 @@ protected:
 
   ros::ServiceClient srv_client_move_lin_, srv_client_move_joints_;
 
+  bool joints_on_fb_are_deg;
+  bool position_on_fb_is_mm;
+  bool orientation_on_fb_is_xyz;
+  bool xyz_on_fb_is_deg;
+
 public:
   // The node handle should point to the robot namespace
   MecademicROSClient(const ros::NodeHandle& nh);
@@ -56,6 +61,11 @@ public:
   WARNING! angle is in [rad]  (NOT deg)
   */
   void move_joints(const mecademic_msgs::Joints& desired_joints);
+
+  /*
+    Get the current tool pose
+  */
+  geometry_msgs::PoseStamped getToolPose(const ros::Duration& timeout = ros::Duration(-1));
 
   /*
    Wait for robot stop to desired pose
