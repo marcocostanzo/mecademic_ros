@@ -1,0 +1,8 @@
+#Pose in MECADEMIC convention
+# position in [mm]
+# orientation in XYZ Euler angle in [deg]
+geometry_msgs/Point position
+mecademic_msgs/EulXYZ orientation
+---
+bool success
+string message

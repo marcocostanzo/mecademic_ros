@@ -1,14 +1,24 @@
 <launch>
 
-<arg name="joints_controller" default="false"/>
-<arg name="joints_controller_gains" default="[3.0, 3.0, 3.0, 3.0, 3.0, 3.0]" />
+<!-- IP ADDRESS of the robot -->
 <arg name="ip_address" default="192.168.0.100" />
+
+<!-- If true, put all limits to max value (velocity and acc limits) -->
 <arg name="high_performance" default="false" />
+
+<!-- If true activate the robot state publisher -->
 <arg name="robot_state_publisher" default="true" />
-<arg name="meca500_tf_prefix" default="" />
+<!-- URDF of the robot, you can use a custom one (for example to change the EE)
+    The meca500 xacro macro is in urdf/meca_500_r3.xacro
+-->
 <arg name="meca500_description" default="$(find mecademic_description)/urdf/meca_500_r3.urdf.xacro" />
 
-<group ns="meca500">
+<!-- The prefix to use for the tf frame ids, usefull in case of multi-robot enviroments -->
+<arg name="meca500_tf_prefix" default="" />
+
+<!-- If activate a joint controller node (joint reference to vel command) -->
+<arg name="joints_controller" default="false"/>
+<arg name="joints_controller_gains" default="[3.0, 3.0, 3.0, 3.0, 3.0, 3.0]" />
 
 <node 
     name="robot_driver"  
@@ -19,6 +29,7 @@
     <param name="high_performance" type="bool" value="True"/>
     <param name="ip_address" type="string" value="$(arg ip_address)"/>
     <param name="high_performance" type="bool" value="$(arg high_performance)"/>
+    <param name="tf_prefix" value="$(arg meca500_tf_prefix)"/>
 </node>
 
 <node 
@@ -29,6 +40,7 @@
 >
     <!--- TODO param name="num_joints" type="int" value="$(arg num_joints)"/-->
     <param name="ip_address" type="string" value="$(arg ip_address)"/>
+    <param name="tf_prefix" value="$(arg meca500_tf_prefix)"/>
 </node>
 
 <node 
@@ -47,8 +59,6 @@
     <node name="meca500_state_publisher" pkg="robot_state_publisher" type="state_publisher">
         <remap from="joint_states" to="state/joint_position"/>
     </node>
-</group>
-
 </group>
 
 </launch>

@@ -1,5 +1,7 @@
-geometry_msgs/Point position
-mecademic_msgs/EulXYZ orientation
+#Pose in ROS convention
+# position in [m]
+# orientation in quaternion
+geometry_msgs/PoseStamped pose
 ---
 bool success
 string message

@@ -7,6 +7,7 @@ from mecademic_msgs.msg import StatusRobot
 from mecademic_pydriver import RobotFeedback
 
 from math import pi as PI
+import tf
 
 
 class MecademicRobotROS_Feedback():
@@ -14,7 +15,7 @@ class MecademicRobotROS_Feedback():
     ROS Mecademic Robot Feedback Node Class to make a Feedback Node for the Mecademic Robot
     """
 
-    def __init__(self, ip_address='192.168.0.100'):
+    def __init__(self, ip_address='192.168.0.100', tf_prefix=""):
         """
         Constructor for the ROS MecademicRobotROS Feedback
         ip_address: str
@@ -25,9 +26,9 @@ class MecademicRobotROS_Feedback():
 
         self.feedback = RobotFeedback(ip_address)
 
-        self.joints_name = ["meca_axis_1_joint", "meca_axis_2_joint", "meca_axis_3_joint",
-                            "meca_axis_4_joint", "meca_axis_5_joint", "meca_axis_6_joint"]
-        self.wrf_frame_id = "meca_wrf"
+        self.joints_name = [tf_prefix + "A1_joint", tf_prefix + "A2_joint", tf_prefix + "A3_joint",
+                            tf_prefix + "A4_joint", tf_prefix + "A5_joint", tf_prefix + "A6_joint"]
+        self.wrf_frame_id = tf_prefix + "meca_wrf"
 
         # Connect to the robot
         rospy.loginfo("Conncting to the Robot Feedback Interface...")
@@ -47,13 +48,13 @@ class MecademicRobotROS_Feedback():
         """
         rospy.loginfo("Feedback Loop Started")
         while not rospy.is_shutdown():
-            # TODO use stamped messages
-            # TODO Use [m] instead of [mm],
+            # TODO use stamped messages -> DONE
+            # TODO Use [m] instead of [mm], -> DONE
             #         [rad] instead of [deg], -> DONE
-            #         quaternion instead of euler
-            #           q = quaternion_from_euler(0.0, 0.0, 0.0, 'sxyz')
+            #         quaternion instead of euler -> DONE
+            #           q = quaternion_from_euler(0.0, 0.0, 0.0, 'rxyz')
             #           pose_msg.orientation = Quaternion(*q)
-            #         programmatic setup of meca_wrf
+            #         programmatic setup of meca_wrf -> DONE
 
             joints_deg, pose, robot_status = self.feedback.get_data(
                 timeout=1.0)
@@ -72,12 +73,15 @@ class MecademicRobotROS_Feedback():
 
             if pose:
                 pose_msg = PoseStamped()
-                pose_msg.pose.position.x = pose[0]
-                pose_msg.pose.position.y = pose[1]
-                pose_msg.pose.position.z = pose[2]
-                pose_msg.pose.orientation.x = pose[3]
-                pose_msg.pose.orientation.y = pose[4]
-                pose_msg.pose.orientation.z = pose[5]
+                pose_msg.pose.position.x = pose[0] / 1000.0
+                pose_msg.pose.position.y = pose[1] / 1000.0
+                pose_msg.pose.position.z = pose[2] / 1000.0
+                quaternion = tf.transformations.quaternion_from_euler(
+                    pose[3] * PI/180.0, pose[4] * PI/180.0, pose[5] * PI/180.0, 'rxyz') # rxyz should be mobile xyz
+                pose_msg.pose.orientation.x = quaternion[0]
+                pose_msg.pose.orientation.y = quaternion[1]
+                pose_msg.pose.orientation.z = quaternion[2]
+                pose_msg.pose.orientation.w = quaternion[3]
                 pose_msg.header.stamp = time_now
                 pose_msg.header.frame_id = self.wrf_frame_id
                 self.pose_publisher.publish(pose_msg)
@@ -112,8 +116,10 @@ if __name__ == "__main__":
     rospy.init_node("mecademic_robot_feedback")
 
     ip_address = rospy.get_param('~ip_address', '192.168.0.100')
+    tf_prefix = rospy.get_param('~tf_prefix', '')
 
-    mecademic_ros_fb = MecademicRobotROS_Feedback(ip_address=ip_address)
+    mecademic_ros_fb = MecademicRobotROS_Feedback(
+        ip_address=ip_address, tf_prefix=tf_prefix)
 
     try:
         mecademic_ros_fb.loop()

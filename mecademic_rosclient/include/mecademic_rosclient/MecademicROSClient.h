@@ -33,7 +33,9 @@ namespace mecademic
 class timeout_exception : public std::runtime_error
 {
 public:
-  timeout_exception(std::string const& msg) : std::runtime_error(msg) { }
+  timeout_exception(std::string const& msg) : std::runtime_error(msg)
+  {
+  }
 };
 
 class MecademicROSClient
@@ -41,7 +43,7 @@ class MecademicROSClient
 protected:
   ros::NodeHandle nh_;
 
-  ros::ServiceClient srv_client_move_lin_, srv_client_move_joints_;
+  ros::ServiceClient srv_client_move_lin_, srv_client_move_joints_, srv_client_set_trf_;
 
   bool joints_on_fb_are_deg;
   bool position_on_fb_is_mm;
@@ -49,18 +51,27 @@ protected:
   bool xyz_on_fb_is_deg;
 
 public:
+  const std::string brf_frame_id_, wrf_frame_id_, frf_frame_id_, trf_frame_id_;
+
+public:
   // The node handle should point to the robot namespace
-  MecademicROSClient(const ros::NodeHandle& nh);
+  MecademicROSClient(const ros::NodeHandle& nh, const std::string& tf_prefix = "");
 
   /* Move the robot following a linear path, pose must be w.r.t. the robot's world frame
   WARNING! position is in meters [m]  (NOT mm)
   */
-  void move_lin(const geometry_msgs::Pose& desired_pose);
+  void move_lin(const geometry_msgs::PoseStamped& desired_pose);
 
   /* Move the robot joints to desired position
   WARNING! angle is in [rad]  (NOT deg)
   */
   void move_joints(const mecademic_msgs::Joints& desired_joints);
+
+  /*
+  Set the robot TRF
+  TRF pose MUST be w.r.t. mecademic's FRF
+  */
+  void set_trf(const geometry_msgs::PoseStamped& trf_pose);
 
   /*
     Get the current tool pose
@@ -70,7 +81,8 @@ public:
   /*
    Wait for robot stop to desired pose
   */
-  void wait_pose(const geometry_msgs::Pose& desired_pose, const ros::Duration& timeout = ros::Duration(-1), double epsilon_pose = 0.0005, double epsilon_rotation = 0.0005);
+  void wait_pose(const geometry_msgs::Pose& desired_pose, const ros::Duration& timeout = ros::Duration(-1),
+                 double epsilon_pose = 0.0005, double epsilon_rotation = 0.0005);
 
   /*
    Wait for robot stop to desired joint position

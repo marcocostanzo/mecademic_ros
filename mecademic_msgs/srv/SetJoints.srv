@@ -1,3 +1,4 @@
+# Joints in MECADEMIC convention [deg]
 float64[] joints
 ---
 bool success

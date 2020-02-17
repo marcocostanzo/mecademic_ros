@@ -29,39 +29,34 @@ void pose_distance(const geometry_msgs::Pose& p1, const geometry_msgs::Pose& p2,
 namespace mecademic
 {
 // The node handle should point to the robot namespace
-MecademicROSClient::MecademicROSClient(const ros::NodeHandle& nh) : nh_(nh)
+MecademicROSClient::MecademicROSClient(const ros::NodeHandle& nh, const std::string& tf_prefix)
+  : nh_(nh)
+  , brf_frame_id_(tf_prefix + "meca_brf")
+  , wrf_frame_id_(tf_prefix + "meca_wrf")
+  , frf_frame_id_(tf_prefix + "meca_frf")
+  , trf_frame_id_(tf_prefix + "meca_trf")
 {
   joints_on_fb_are_deg = false;
-  position_on_fb_is_mm = true;
-  orientation_on_fb_is_xyz = true;
+  position_on_fb_is_mm = false;
+  orientation_on_fb_is_xyz = false;
   xyz_on_fb_is_deg = true;
-  
+
   srv_client_move_lin_ = nh_.serviceClient<mecademic_msgs::SetPose>("move_lin");
   srv_client_move_joints_ = nh_.serviceClient<mecademic_msgs::SetJoints>("move_joints");
+  srv_client_set_trf_ = nh_.serviceClient<mecademic_msgs::SetPose>("set_trf");
 
   srv_client_move_lin_.waitForExistence();
   srv_client_move_joints_.waitForExistence();
+  srv_client_set_trf_.waitForExistence();
 }
 
 /* Move the robot following a linear path, pose must be w.r.t. the robot's world frame
 WARNING! position is in meters [m]  (NOT mm)
 */
-void MecademicROSClient::move_lin(const geometry_msgs::Pose& desired_pose)
+void MecademicROSClient::move_lin(const geometry_msgs::PoseStamped& desired_pose)
 {
   mecademic_msgs::SetPose srv_msg;
-  //[mm]
-  srv_msg.request.position.x = desired_pose.position.x * 1000.0;
-  srv_msg.request.position.y = desired_pose.position.y * 1000.0;
-  srv_msg.request.position.z = desired_pose.position.z * 1000.0;
-
-  double roll, pitch, yaw;
-  quaternion2RPY(desired_pose.orientation, roll, pitch, yaw);
-
-  // Convert quaternion to xyz
-  //[deg]
-  srv_msg.request.orientation.x = roll * 180.0 / M_PI;
-  srv_msg.request.orientation.y = pitch * 180.0 / M_PI;
-  srv_msg.request.orientation.z = yaw * 180.0 / M_PI;
+  srv_msg.request.pose = desired_pose;
 
   // DBG
   std::cout << "srv_move = \n" << srv_msg.request << std::endl;
@@ -89,14 +84,7 @@ void MecademicROSClient::move_lin(const geometry_msgs::Pose& desired_pose)
 void MecademicROSClient::move_joints(const mecademic_msgs::Joints& desired_joints)
 {
   mecademic_msgs::SetJoints srv_msg;
-  srv_msg.request.joints.resize(6);
-  //[deg]
-  srv_msg.request.joints[0] = desired_joints.joints[0] * 180.0 / M_PI;
-  srv_msg.request.joints[1] = desired_joints.joints[1] * 180.0 / M_PI;
-  srv_msg.request.joints[2] = desired_joints.joints[2] * 180.0 / M_PI;
-  srv_msg.request.joints[3] = desired_joints.joints[3] * 180.0 / M_PI;
-  srv_msg.request.joints[4] = desired_joints.joints[4] * 180.0 / M_PI;
-  srv_msg.request.joints[5] = desired_joints.joints[5] * 180.0 / M_PI;
+  srv_msg.request.joints = desired_joints.joints;
 
   // DBG
   std::cout << "srv_move_joints = \n" << srv_msg.request << std::endl;
@@ -118,15 +106,35 @@ void MecademicROSClient::move_joints(const mecademic_msgs::Joints& desired_joint
   }
 }
 
+/*
+Set the robot TRF
+TRF pose MUST be w.r.t. mecademic's FRF
+*/
+void MecademicROSClient::set_trf(const geometry_msgs::PoseStamped& trf_pose)
+{
+  mecademic_msgs::SetPose srv_msg;
+  srv_msg.request.pose = trf_pose;
+
+  if (!srv_client_set_trf_.call(srv_msg))
+  {
+    throw std::runtime_error("MecademicROSClient::set_trf server error");
+  }
+  if (!srv_msg.response.success)
+  {
+    throw std::runtime_error("MecademicROSClient::set_trf success is false");
+  }
+}
+
 geometry_msgs::PoseStamped MecademicROSClient::getToolPose(const ros::Duration& timeout)
 {
   ros::Time start_time = ros::Time::now();
   geometry_msgs::PoseStamped pose;
   bool msg_arrived;
   boost::function<void(const geometry_msgs::PoseStamped::ConstPtr& msg)> sub_cb =
-      boost::bind(pose_cb, _1, position_on_fb_is_mm, orientation_on_fb_is_xyz, xyz_on_fb_is_deg, boost::ref(pose), boost::ref(msg_arrived));
+      boost::bind(pose_cb, _1, position_on_fb_is_mm, orientation_on_fb_is_xyz, xyz_on_fb_is_deg, boost::ref(pose),
+                  boost::ref(msg_arrived));
   ros::Subscriber sub_pose = nh_.subscribe("state/pose", 1, sub_cb);
-  
+
   msg_arrived = false;
   while (ros::ok())
   {
@@ -146,10 +154,9 @@ geometry_msgs::PoseStamped MecademicROSClient::getToolPose(const ros::Duration& 
   }
 }
 
-
 /*
    Wait for robot stop to desired pose
-  */
+*/
 void MecademicROSClient::wait_pose(const geometry_msgs::Pose& desired_pose, const ros::Duration& timeout,
                                    double epsilon_pose, double epsilon_rotation)
 {
@@ -158,7 +165,8 @@ void MecademicROSClient::wait_pose(const geometry_msgs::Pose& desired_pose, cons
   geometry_msgs::PoseStamped actual_pose;
   bool msg_arrived;
   boost::function<void(const geometry_msgs::PoseStamped::ConstPtr& msg)> sub_cb =
-      boost::bind(pose_cb, _1, position_on_fb_is_mm, orientation_on_fb_is_xyz, xyz_on_fb_is_deg, boost::ref(actual_pose), boost::ref(msg_arrived));
+      boost::bind(pose_cb, _1, position_on_fb_is_mm, orientation_on_fb_is_xyz, xyz_on_fb_is_deg,
+                  boost::ref(actual_pose), boost::ref(msg_arrived));
   ros::Subscriber sub_pose = nh_.subscribe("state/pose", 1, sub_cb);
 
   msg_arrived = false;
@@ -261,7 +269,7 @@ void pose_cb(const geometry_msgs::PoseStamped::ConstPtr& msg, bool mm2m, bool xy
     out_msg.pose.position.z /= 1000.0;
   }
   if (xyz2quat)
-  {
+  {  // wrong! TODO
     if (deg2rad)
     {
       out_msg.pose.orientation.x *= M_PI / 180.0;
@@ -303,6 +311,9 @@ void quaternion2RPY(const geometry_msgs::Quaternion& quaternion, double& roll, d
 {
   tf2::Quaternion tf_quat;
   tf2::convert(quaternion, tf_quat);
+  std::cout << "\n\nQUAT: \nx:" << tf_quat.getX() << "\ny: " << tf_quat.getY() << "\nz: " << tf_quat.getZ()
+            << "\nw: " << tf_quat.getW() << "\n\n"
+            << std::endl;
   tf2::Matrix3x3 m(tf_quat);
-  m.getRPY(roll, pitch, yaw);
+  m.getRPY(yaw, pitch, roll);  // check this...
 }

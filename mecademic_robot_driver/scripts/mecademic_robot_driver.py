@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import rospy
-from geometry_msgs.msg import Pose, TwistStamped, TransformStamped
+from geometry_msgs.msg import Pose, TwistStamped, TransformStamped, PoseStamped
 from sensor_msgs.msg import JointState
 from std_msgs.msg import String, Bool, UInt8MultiArray
 from mecademic_pydriver import RobotController
@@ -9,6 +9,8 @@ import mecademic_msgs.srv
 
 import tf2_ros
 import tf
+
+from math import pi as PI
 
 import threading
 
@@ -68,10 +70,25 @@ class MecademicRobotROS_Driver():
                 if high_performance:
                     self.high_performances()
 
-    def ros_setup(self):
+    def ros_setup(self, tf_prefix=""):
         """
         Setup the ROS interface
         """
+
+        # for check_vel_timestamp
+        self.last_vel_timestamp = rospy.Time.now()
+
+        # TF
+        self.brf_frame_id = tf_prefix + "meca_brf"
+        self.wrf_frame_id = tf_prefix + "meca_wrf"
+        self.frf_frame_id = tf_prefix + "meca_frf"
+        self.trf_frame_id = tf_prefix + "meca_trf"
+        self.tf_static_broadcaster = tf2_ros.StaticTransformBroadcaster()
+        self.tf_static_list = [TransformStamped(), TransformStamped()]
+        self.update_tf_wrf()
+        self.update_tf_trf()
+        self.update_tf_static()
+
         self.srv_activate = rospy.Service(
             'activate_robot', std_srvs.srv.Trigger, self.activate_srv_cb)
         self.srv_clear_motion = rospy.Service(
@@ -95,49 +112,60 @@ class MecademicRobotROS_Driver():
         self.srv_set_monitoring_interval = rospy.Service(
             'set_monitoring_interval', mecademic_msgs.srv.SetValue, self.set_monitoring_interval_srv_cb)
 
+        self.srv_move_joints_meca_conv = rospy.Service(
+            'meca_convention/move_joints', mecademic_msgs.srv.SetJoints, self.move_joints_meca_conv_srv_cb)
         self.srv_move_joints = rospy.Service(
             'move_joints', mecademic_msgs.srv.SetJoints, self.move_joints_srv_cb)
+        self.sub_move_joints_vel_meca_conv = rospy.Subscriber(
+            'meca_convention/command/joints_vel', mecademic_msgs.msg.Joints, callback=self.move_joints_vel_meca_conv_sub_cb, queue_size=1)
         self.sub_move_joints_vel = rospy.Subscriber(
             'command/joints_vel', mecademic_msgs.msg.Joints, callback=self.move_joints_vel_sub_cb, queue_size=1)
+        self.srv_move_lin_meca_conv = rospy.Service(
+            'meca_convention/move_lin', mecademic_msgs.srv.SetMecaPose, self.move_lin_meca_conv_srv_cb)
         self.srv_move_lin = rospy.Service(
             'move_lin', mecademic_msgs.srv.SetPose, self.move_lin_srv_cb)
-        self.srv_move_lin_rel_trf = rospy.Service(
-            'move_lin_rel_trf', mecademic_msgs.srv.SetPose, self.move_lin_rel_trf_srv_cb)
-        self.srv_move_lin_rel_wrf = rospy.Service(
-            'move_lin_rel_wrf', mecademic_msgs.srv.SetPose, self.move_lin_rel_wrf_srv_cb)
-        self.sub_move_lin_vel_trf = rospy.Subscriber(
+        self.srv_move_lin_rel_trf_meca_conv = rospy.Service(
+            'meca_convention/move_lin_rel_trf', mecademic_msgs.srv.SetMecaPose, self.move_lin_rel_trf_meca_conv_srv_cb)
+        self.srv_move_lin_rel_wrf_meca_conv = rospy.Service(
+            'meca_convention/move_lin_rel_wrf', mecademic_msgs.srv.SetMecaPose, self.move_lin_rel_wrf_meca_conv_srv_cb)
+        self.sub_move_vel_trf_meca_conv = rospy.Subscriber(
+            'command/meca_convention/vel_trf', TwistStamped, callback=self.move_lin_vel_trf_meca_conv_sub_cb, queue_size=1)
+        self.sub_move_vel_trf = rospy.Subscriber(
             'command/vel_trf', TwistStamped, callback=self.move_lin_vel_trf_sub_cb, queue_size=1)
-        self.sub_move_lin_vel_wrf = rospy.Subscriber(
+        self.sub_move_vel_wrf_meca_conv = rospy.Subscriber(
+            'command/meca_convention/vel_wrf', TwistStamped, callback=self.move_lin_vel_wrf_meca_conv_sub_cb, queue_size=1)
+        self.sub_move_vel_wrf = rospy.Subscriber(
             'command/vel_wrf', TwistStamped, callback=self.move_lin_vel_wrf_sub_cb, queue_size=1)
+        self.srv_move_pose_meca_conv = rospy.Service(
+            'meca_convention/move_pose', mecademic_msgs.srv.SetMecaPose, self.move_pose_meca_conv_srv_cb)
         self.srv_move_pose = rospy.Service(
             'move_pose', mecademic_msgs.srv.SetPose, self.move_pose_srv_cb)
         self.srv_set_auto_conf = rospy.Service(
             'set_auto_conf', std_srvs.srv.SetBool, self.set_auto_conf_srv_cb)
         self.srv_set_blending = rospy.Service(
-            'set_blending', mecademic_msgs.srv.SetValue, self.set_blending_srv_cb)
+            'set_blending', mecademic_msgs.srv.SetPerc, self.set_blending_srv_cb)
         self.srv_set_cart_acc = rospy.Service(
-            'set_cart_acc', mecademic_msgs.srv.SetValue, self.set_cart_acc_srv_cb)
-        self.srv_set_cart_ang_vel = rospy.Service(
-            'set_cart_ang_vel', mecademic_msgs.srv.SetValue, self.set_cart_ang_vel_srv_cb)
-        self.srv_set_cart_lin_vel = rospy.Service(
-            'set_cart_lin_vel', mecademic_msgs.srv.SetValue, self.set_cart_lin_vel_srv_cb)
+            'set_cart_acc', mecademic_msgs.srv.SetPerc, self.set_cart_acc_srv_cb)
+        self.srv_set_cart_ang_vel_meca_conv = rospy.Service(
+            'meca_convention/set_cart_ang_vel', mecademic_msgs.srv.SetValue, self.set_cart_ang_vel_meca_conv_srv_cb)
+        self.srv_set_cart_lin_vel_meca_conv = rospy.Service(
+            'meca_convention/set_cart_lin_vel', mecademic_msgs.srv.SetValue, self.set_cart_lin_vel_meca_conv_srv_cb)
         self.srv_set_conf = rospy.Service(
             'set_conf', mecademic_msgs.srv.SetConf, self.set_conf_srv_cb)
         self.srv_set_joint_acc = rospy.Service(
-            'set_joint_acc', mecademic_msgs.srv.SetValue, self.set_joint_acc_srv_cb)
+            'set_joint_acc', mecademic_msgs.srv.SetPerc, self.set_joint_acc_srv_cb)
         self.srv_set_joint_vel = rospy.Service(
-            'set_joint_vel', mecademic_msgs.srv.SetValue, self.set_joint_vel_srv_cb)
+            'set_joint_vel', mecademic_msgs.srv.SetPerc, self.set_joint_vel_srv_cb)
+        self.srv_set_trf_meca_conv = rospy.Service(
+            'meca_convention/set_trf', mecademic_msgs.srv.SetMecaPose, self.set_trf_meca_conv_srv_cb)
         self.srv_set_trf = rospy.Service(
             'set_trf', mecademic_msgs.srv.SetPose, self.set_trf_srv_cb)
+        self.srv_set_wrf_meca_conv = rospy.Service(
+            'meca_convention/set_wrf', mecademic_msgs.srv.SetMecaPose, self.set_wrf_meca_conv_srv_cb)
         self.srv_set_wrf = rospy.Service(
-            'set_wrf', mecademic_msgs.srv.SetPose, self.set_wrf_srv_cb)
+            'set_wrf', mecademic_msgs.srv.SetMecaPose, self.set_wrf_srv_cb)
         self.srv_set_vel_timeout = rospy.Service(
             'set_vel_timeout', mecademic_msgs.srv.SetValue, self.set_vel_timeout_srv_cb)
-
-        self.update_tf_wrf()
-
-        # for check_vel_timestamp
-        self.last_vel_timestamp = rospy.Time.now()
 
     def high_performances(self):
         """
@@ -175,12 +203,106 @@ class MecademicRobotROS_Driver():
                     wait_for_new_messages=False)
             loop_rate.sleep()
 
+    def update_tf_wrf(self, tanslation=[0, 0, 0], orientation=[0, 0, 0]):
+        """
+        Update the brf->wrf transform on /tf_static
+        """
+        self.tf_static_list[0] = self.compute_tf(tanslation, orientation,
+                                                 self.brf_frame_id, self.wrf_frame_id)
+        self.update_tf_static()
+
+    def update_tf_trf(self, tanslation=[0, 0, 0], orientation=[0, 0, 0]):
+        """
+        Update the brf->wrf transform on /tf_static
+        """
+        self.tf_static_list[1] = self.compute_tf(tanslation, orientation,
+                                                 self.frf_frame_id, self.trf_frame_id)
+        self.update_tf_static()
+
+    def compute_tf(self, tanslation, orientation, source_frame_id, taget_frame_id):
+        """
+        compute the transform
+        """
+
+        quaternion = tf.transformations.quaternion_from_euler(
+            orientation[0] * PI/180.0, orientation[1] * PI/180.0, orientation[2] * PI/180.0, 'rxyz')  # rxyz should be mobile xyz
+
+        static_transformStamped = TransformStamped()
+        static_transformStamped.header.stamp = rospy.Time.now()
+        static_transformStamped.header.frame_id = source_frame_id
+        static_transformStamped.child_frame_id = taget_frame_id
+        static_transformStamped.transform.translation.x = tanslation[0] / 1000.0
+        static_transformStamped.transform.translation.y = tanslation[1] / 1000.0
+        static_transformStamped.transform.translation.z = tanslation[2] / 1000.0
+        static_transformStamped.transform.rotation.x = quaternion[0]
+        static_transformStamped.transform.rotation.y = quaternion[1]
+        static_transformStamped.transform.rotation.z = quaternion[2]
+        static_transformStamped.transform.rotation.w = quaternion[3]
+
+        return static_transformStamped
+
+    def update_tf_static(self):
+        """
+        Update all static tf on /tf_static
+        """
+        self.tf_static_broadcaster.sendTransform(self.tf_static_list)
+
     def get_status_robot(self):
         """
         Get Status of the robot
         """
         with self._robot_lock:
             return self.robot.GetStatusRobot()
+
+    def set_pose_req_2_set_meca_pose_req(self, set_pose_req, target_frame_id):
+        """
+        Convert a set pose req in mecademic convention
+        """
+        if not set_pose_req.pose.header.frame_id == target_frame_id:
+            raise Exception("The required pose must be in the frame " + target_frame_id)
+
+        meca_req = mecademic_msgs.srv.SetMecaPoseRequest()
+        meca_req.position.x = set_pose_req.pose.pose.position.x * 1000.0
+        meca_req.position.y = set_pose_req.pose.pose.position.y * 1000.0
+        meca_req.position.z = set_pose_req.pose.pose.position.z * 1000.0
+
+        eul_xyz = tf.transformations.euler_from_quaternion(
+            [set_pose_req.pose.pose.orientation.x, set_pose_req.pose.pose.orientation.y, set_pose_req.pose.pose.orientation.z, set_pose_req.pose.pose.orientation.w], 'rxyz')
+
+        meca_req.orientation.x = eul_xyz[0] * 180.0 / PI
+        meca_req.orientation.y = eul_xyz[1] * 180.0 / PI
+        meca_req.orientation.z = eul_xyz[2] * 180.0 / PI
+
+        print("meca_req\n")
+        print(meca_req)
+
+        return meca_req
+
+    def set_meca_pose_res_2_set_pose_res(self, set_meca_pose_res):
+        """
+        Convert a set meca pose res in set pose res
+        """
+        res = mecademic_msgs.srv.SetPoseResponse()
+        res.success = set_meca_pose_res.success
+        res.message = set_meca_pose_res.message
+        return res
+
+    def twist_stamped_2_mecademic_twist(self, msg, target_frame_id):
+        """
+        Convert SI twist in mecademic convention
+        Warning, this updates the input
+        """
+        if not msg.header.frame_id == target_frame_id:
+            raise Exception("The required twist must be in the frame " + target_frame_id)
+
+        msg.twist.linear.x *= 1000.0
+        msg.twist.linear.y *= 1000.0
+        msg.twist.linear.z *= 1000.0
+        msg.twist.angular.x *= 180.0/PI
+        msg.twist.angular.y *= 180.0/PI
+        msg.twist.angular.z *= 180.0/PI
+
+        return msg
 
     ################################################
     ###     SERVICES CB REQUEST COMMANDS        ####
@@ -361,7 +483,7 @@ class MecademicRobotROS_Driver():
             rospy.logwarn("MecademicRobot::check_vel_timestamp: old timestamp")
             return False
 
-    def move_joints_srv_cb(self, req):
+    def move_joints_meca_conv_srv_cb(self, req):
         """
         Add a move joints command to the robot queue
         """
@@ -372,7 +494,14 @@ class MecademicRobotROS_Driver():
         res.success = True
         return res
 
-    def move_joints_vel_sub_cb(self, msg):
+    def move_joints_srv_cb(self, req):
+        """
+        Add a move joints command [rad] to the robot queue
+        """
+        req.joints = tuple(joint * 180.0 / PI for joint in req.joints)
+        return self.move_joints_meca_conv_srv_cb(req)
+
+    def move_joints_vel_meca_conv_sub_cb(self, msg):
         """
         Send a move joint vel command
         """
@@ -381,7 +510,14 @@ class MecademicRobotROS_Driver():
                 return
             self.robot.MoveJointsVel(msg.joints)
 
-    def move_lin_srv_cb(self, req):
+    def move_joints_vel_sub_cb(self, msg):
+        """
+        Send a move joint vel command [rad/s]
+        """
+        msg.joints = tuple(joint * 180.0 / PI for joint in msg.joints)
+        return self.move_joints_vel_meca_conv_sub_cb(msg)
+
+    def move_lin_meca_conv_srv_cb(self, req):
         """
         Add a move lin command to the robot queue
         """
@@ -390,12 +526,20 @@ class MecademicRobotROS_Driver():
                 [req.position.x, req.position.y, req.position.z],
                 [req.orientation.x, req.orientation.y, req.orientation.z]
             )
-        res = mecademic_msgs.srv.SetPoseResponse()
+        res = mecademic_msgs.srv.SetMecaPoseResponse()
         res.message = "MoveLin Sent"
         res.success = True
         return res
 
-    def move_lin_rel_trf_srv_cb(self, req):
+    def move_lin_srv_cb(self, req):
+        """
+        Add a move lin command to the robot queue (ros pose stamped)
+        """
+        meca_req = self.set_pose_req_2_set_meca_pose_req(
+            req, self.wrf_frame_id)
+        return self.set_meca_pose_res_2_set_pose_res(self.move_lin_meca_conv_srv_cb(meca_req))
+
+    def move_lin_rel_trf_meca_conv_srv_cb(self, req):
         """
         Add a move lin rel trf command to the robot queue
         """
@@ -404,12 +548,12 @@ class MecademicRobotROS_Driver():
                 [req.position.x, req.position.y, req.position.z],
                 [req.orientation.x, req.orientation.y, req.orientation.z]
             )
-        res = mecademic_msgs.srv.SetPoseResponse()
+        res = mecademic_msgs.srv.SetMecaPoseResponse()
         res.message = "MoveLinRelTRF Sent"
         res.success = True
         return res
 
-    def move_lin_rel_wrf_srv_cb(self, req):
+    def move_lin_rel_wrf_meca_conv_srv_cb(self, req):
         """
         Add a move lin rel wrf command to the robot queue
         """
@@ -418,12 +562,12 @@ class MecademicRobotROS_Driver():
                 [req.position.x, req.position.y, req.position.z],
                 [req.orientation.x, req.orientation.y, req.orientation.z]
             )
-        res = mecademic_msgs.srv.SetPoseResponse()
+        res = mecademic_msgs.srv.SetMecaPoseResponse()
         res.message = "MoveLinRelWRF Sent"
         res.success = True
         return res
 
-    def move_lin_vel_trf_sub_cb(self, msg):
+    def move_lin_vel_trf_meca_conv_sub_cb(self, msg):
         """
         Send a move lin vel trf command
         """
@@ -435,7 +579,14 @@ class MecademicRobotROS_Driver():
                 [msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z]
             )
 
-    def move_lin_vel_wrf_sub_cb(self, msg):
+    def move_lin_vel_trf_sub_cb(self, msg):
+        """
+        Send a move lin vel trf command in [m/s] and [rad/s]
+        """
+        msg = self.twist_stamped_2_mecademic_twist(msg, self.trf_frame_id)
+        self.move_lin_vel_trf_meca_conv_sub_cb(msg)
+
+    def move_lin_vel_wrf_meca_conv_sub_cb(self, msg):
         """
         Send a move lin vel wrf command
         """
@@ -447,7 +598,14 @@ class MecademicRobotROS_Driver():
                 [msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z]
             )
 
-    def move_pose_srv_cb(self, req):
+    def move_lin_vel_wrf_sub_cb(self, msg):
+        """
+        Send a move lin vel wrf command in [m/s] and [rad/s]
+        """
+        msg = self.twist_stamped_2_mecademic_twist(msg, self.wrf_frame_id)
+        self.move_lin_vel_wrf_meca_conv_sub_cb(msg)
+
+    def move_pose_meca_conv_srv_cb(self, req):
         """
         Add a move pose command to the robot queue
         """
@@ -456,10 +614,18 @@ class MecademicRobotROS_Driver():
                 [req.position.x, req.position.y, req.position.z],
                 [req.orientation.x, req.orientation.y, req.orientation.z]
             )
-        res = mecademic_msgs.srv.SetPoseResponse()
+        res = mecademic_msgs.srv.SetMecaPoseResponse()
         res.message = "MovePose Sent"
         res.success = True
         return res
+
+    def move_pose_srv_cb(self, req):
+        """
+        Add a move lin command to the robot queue (ros pose stamped)
+        """
+        meca_req = self.set_pose_req_2_set_meca_pose_req(
+            req, self.wrf_frame_id)
+        return self.set_meca_pose_res_2_set_pose_res(self.move_pose_meca_conv_srv_cb(meca_req))
 
     def set_auto_conf_srv_cb(self, req):
         """
@@ -483,11 +649,11 @@ class MecademicRobotROS_Driver():
         SetBlending cb
         """
         with self._robot_lock:
-            rospy.loginfo("Sending SetBlending({})...".format(req.value))
-            self.robot.SetBlending(req.value)
-            rospy.loginfo("Sending SetBlending({}) Sent!".format(req.value))
-        res = mecademic_msgs.srv.SetValueResponse()
-        res.message = "SetBlending({}) Sent".format(req.value)
+            rospy.loginfo("Sending SetBlending({})...".format(req.perc))
+            self.robot.SetBlending(req.perc)
+            rospy.loginfo("Sending SetBlending({}) Sent!".format(req.perc))
+        res = mecademic_msgs.srv.SetPercResponse()
+        res.message = "SetBlending({}) Sent".format(req.perc)
         res.success = True
         return res
 
@@ -496,15 +662,15 @@ class MecademicRobotROS_Driver():
         SetCartAcc cb
         """
         with self._robot_lock:
-            rospy.loginfo("Sending SetCartAcc({})...".format(req.value))
-            self.robot.SetCartAcc(req.value)
-            rospy.loginfo("Sending SetCartAcc({}) Sent!".format(req.value))
-        res = mecademic_msgs.srv.SetValueResponse()
-        res.message = "SetCartAcc({}) Sent".format(req.value)
+            rospy.loginfo("Sending SetCartAcc({})...".format(req.perc))
+            self.robot.SetCartAcc(req.perc)
+            rospy.loginfo("Sending SetCartAcc({}) Sent!".format(req.perc))
+        res = mecademic_msgs.srv.SetPercResponse()
+        res.message = "SetCartAcc({}) Sent".format(req.perc)
         res.success = True
         return res
 
-    def set_cart_ang_vel_srv_cb(self, req):
+    def set_cart_ang_vel_meca_conv_srv_cb(self, req):
         """
         SetCartAngVel cb
         """
@@ -517,7 +683,7 @@ class MecademicRobotROS_Driver():
         res.success = True
         return res
 
-    def set_cart_lin_vel_srv_cb(self, req):
+    def set_cart_lin_vel_meca_conv_srv_cb(self, req):
         """
         SetCartLinVel cb
         """
@@ -551,11 +717,11 @@ class MecademicRobotROS_Driver():
         SetJointAcc cb
         """
         with self._robot_lock:
-            rospy.loginfo("Sending SetJointAcc({})...".format(req.value))
-            self.robot.SetJointAcc(req.value)
-            rospy.loginfo("Sending SetJointAcc({}) Sent!".format(req.value))
-        res = mecademic_msgs.srv.SetValueResponse()
-        res.message = "SetJointAcc({}) Sent".format(req.value)
+            rospy.loginfo("Sending SetJointAcc({})...".format(req.perc))
+            self.robot.SetJointAcc(req.perc)
+            rospy.loginfo("Sending SetJointAcc({}) Sent!".format(req.perc))
+        res = mecademic_msgs.srv.SetPercResponse()
+        res.message = "SetJointAcc({}) Sent".format(req.perc)
         res.success = True
         return res
 
@@ -564,17 +730,18 @@ class MecademicRobotROS_Driver():
         SetJointVel cb
         """
         with self._robot_lock:
-            rospy.loginfo("Sending SetJointVel({})...".format(req.value))
-            self.robot.SetJointVel(req.value)
-            rospy.loginfo("Sending SetJointVel({}) Sent!".format(req.value))
-        res = mecademic_msgs.srv.SetValueResponse()
-        res.message = "SetJointVel({}) Sent".format(req.value)
+            rospy.loginfo("Sending SetJointVel({})...".format(req.perc))
+            self.robot.SetJointVel(req.perc)
+            rospy.loginfo("Sending SetJointVel({}) Sent!".format(req.perc))
+        res = mecademic_msgs.srv.SetPercResponse()
+        res.message = "SetJointVel({}) Sent".format(req.perc)
         res.success = True
         return res
 
-    def set_trf_srv_cb(self, req):
+    def set_trf_meca_conv_srv_cb(self, req):
         """
         Add a set trf command to the robot queue
+        WARNING! THIS WILL IMMEDIATLY UPDATE THE TRF ON ROS
         """
         with self._robot_lock:
             rospy.loginfo("Sending SetTRF...")
@@ -583,15 +750,26 @@ class MecademicRobotROS_Driver():
                 [req.orientation.x, req.orientation.y, req.orientation.z]
             )
             rospy.loginfo("SetTRF Sent!")
-        res = mecademic_msgs.srv.SetPoseResponse()
+            self.update_tf_trf([req.position.x, req.position.y, req.position.z],
+                               [req.orientation.x, req.orientation.y, req.orientation.z])
+        res = mecademic_msgs.srv.SetMecaPoseResponse()
         res.message = "SetTRF Sent"
         res.success = True
         return res
 
-    def set_wrf_srv_cb(self, req):
+    def set_trf_srv_cb(self, req):
+        """
+        Add a set trf command to the robot queue (input in ros pose)
+        WARNING! THIS WILL IMMEDIATLY UPDATE THE TRF ON ROS
+        """
+        meca_req = self.set_pose_req_2_set_meca_pose_req(
+            req, self.frf_frame_id)
+        return self.set_meca_pose_res_2_set_pose_res(self.set_trf_meca_conv_srv_cb(meca_req))
+
+    def set_wrf_meca_conv_srv_cb(self, req):
         """
         Add a set wrf command to the robot queue
-        WARNING! THIS WILL IMMEDIATLY UPDATE THE WRF ON /tf_static
+        WARNING! THIS WILL IMMEDIATLY UPDATE THE WRF ON ROS
         """
         with self._robot_lock:
             rospy.loginfo("Sending SetWRF...")
@@ -602,37 +780,19 @@ class MecademicRobotROS_Driver():
             rospy.loginfo("SetWRF Sent!")
             self.update_tf_wrf([req.position.x, req.position.y, req.position.z],
                                [req.orientation.x, req.orientation.y, req.orientation.z])
-        res = mecademic_msgs.srv.SetPoseResponse()
+        res = mecademic_msgs.srv.SetMecaPoseResponse()
         res.message = "SetWRF Sent"
         res.success = True
         return res
 
-    def update_tf_wrf(self,position = [0,0,0], orientation=[0,0,0]):
+    def set_wrf_srv_cb(self, req):
         """
-        Update the wrf->brf transform on /tf_statuc
+        Add a set wrf command to the robot queue (input in ros pose)
+        WARNING! THIS WILL IMMEDIATLY UPDATE THE WRF ON ROS
         """
-        self.broadcaster = tf2_ros.StaticTransformBroadcaster()
-
-        quat = tf.transformations.quaternion_from_euler(orientation[0],orientation[1],orientation[2],'sxyz')
-        transform = tf.transformations.concatenate_matrices(tf.transformations.translation_matrix(position),tf.transformations.quaternion_matrix(quat))
-        
-        inversed_transform = tf.transformations.inverse_matrix(transform)
-        tanslation = tf.transformations.translation_from_matrix(inversed_transform)
-        quaternion = tf.transformations.quaternion_from_matrix(inversed_transform)
-
-        static_transformStamped = TransformStamped()
-        static_transformStamped.header.stamp = rospy.Time.now()
-        static_transformStamped.header.frame_id = "meca_wrf"
-        static_transformStamped.child_frame_id = "meca_brf" 
-        static_transformStamped.transform.translation.x = tanslation[0]
-        static_transformStamped.transform.translation.y = tanslation[1]
-        static_transformStamped.transform.translation.z = tanslation[2]
-        static_transformStamped.transform.rotation.x = quaternion[0]
-        static_transformStamped.transform.rotation.y = quaternion[1]
-        static_transformStamped.transform.rotation.z = quaternion[2]
-        static_transformStamped.transform.rotation.w = quaternion[3]        
-   
-        self.broadcaster.sendTransform(static_transformStamped)
+        meca_req = self.set_pose_req_2_set_meca_pose_req(
+            req, self.brf_frame_id)
+        return self.set_meca_pose_res_2_set_pose_res(self.set_wrf_meca_conv_srv_cb(meca_req))
 
     def set_vel_timeout_srv_cb(self, req):
         """
@@ -676,6 +836,8 @@ if __name__ == "__main__":
     activate = rospy.get_param('~activate', True)
     home = rospy.get_param('~home', True)
     high_performance = rospy.get_param('~high_performance', False)
+    tf_prefix = rospy.get_param('~tf_prefix', "")
+
     try:
         mecademic_ros_driver = MecademicRobotROS_Driver(ip_address=ip_address)
         mecademic_ros_driver.robot_setup(
@@ -683,7 +845,7 @@ if __name__ == "__main__":
             home=home,
             high_performance=high_performance
         )
-        mecademic_ros_driver.ros_setup()
+        mecademic_ros_driver.ros_setup(tf_prefix=tf_prefix)
         mecademic_ros_driver.loop_on_log()
     except Exception as e:
         rospy.logerr("MecademicDriver: {}".format(e))

@@ -47,12 +47,23 @@ geometry_msgs
 
 ## Generate messages in the 'msg' folder
 add_message_files(
-  DIRECTORY msg
+  FILES
+  EulXYZ.msg
+  Joints.msg
+  StatusRobot.msg
 )
 
 ## Generate services in the 'srv' folder
 add_service_files(
-  DIRECTORY srv
+  FILES
+  GetConf.srv
+  GetStatusRobot.srv
+  SetConf.srv
+  SetJoints.srv
+  SetPerc.srv
+  SetMecaPose.srv
+  SetPose.srv
+  SetValue.srv
 )
 
 ## Generate actions in the 'action' folder
