@@ -77,7 +77,7 @@ class MecademicRobotROS_Feedback():
                 pose_msg.pose.position.y = pose[1] / 1000.0
                 pose_msg.pose.position.z = pose[2] / 1000.0
                 quaternion = tf.transformations.quaternion_from_euler(
-                    pose[3] * PI/180.0, pose[4] * PI/180.0, pose[5] * PI/180.0, 'rxyz') # rxyz should be mobile xyz
+                    pose[3] * PI/180.0, pose[4] * PI/180.0, pose[5] * PI/180.0, 'rxyz')  # rxyz should be mobile xyz
                 pose_msg.pose.orientation.x = quaternion[0]
                 pose_msg.pose.orientation.y = quaternion[1]
                 pose_msg.pose.orientation.z = quaternion[2]

@@ -83,7 +83,7 @@ class MecademicRobotROS_Driver():
         self.wrf_frame_id = tf_prefix + "meca_wrf"
         self.frf_frame_id = tf_prefix + "meca_frf"
         self.trf_frame_id = tf_prefix + "meca_trf"
-        #TF2
+        # TF2
         self._tf_lock = threading.Lock()
         self._tf_transforms_list = [TransformStamped(), TransformStamped()]
         self.update_tf_wrf()
@@ -192,15 +192,16 @@ class MecademicRobotROS_Driver():
             msg.data = "[{}][{}]".format(message[0], message[1])
             self.pub_log.publish(msg)
 
-    def start_tf_publisher_timer(self, period=0.1):
+    def start_tf_publisher_timer(self, period=0.05):
         """
         Start the tf publisher timer
         """
         self._transform_broadcaster = tf2_ros.TransformBroadcaster()
-        self._tf_publisher_timer = rospy.Timer(rospy.Duration(period),self.tf_publisher_timer_cb)
+        self._tf_publisher_timer = rospy.Timer(
+            rospy.Duration(period), self.tf_publisher_timer_cb)
         rospy.loginfo("TF Publisher Enabled")
 
-    def tf_publisher_timer_cb(self,event):
+    def tf_publisher_timer_cb(self, event):
         """
         Publish on \tf in a thread safe way
         """
@@ -211,10 +212,11 @@ class MecademicRobotROS_Driver():
         """
         Start the update log timer
         """
-        self.update_log_timer = rospy.Timer(rospy.Duration(period),self.update_log_timer_cb)
+        self.update_log_timer = rospy.Timer(
+            rospy.Duration(period), self.update_log_timer_cb)
         rospy.loginfo("Log Auto-Update Enabled")
 
-    def update_log_timer_cb(self,event):
+    def update_log_timer_cb(self, event):
         """
         Update the log in a thread-safe way
         """
@@ -229,7 +231,7 @@ class MecademicRobotROS_Driver():
         """
         with self._tf_lock:
             self._tf_transforms_list[0] = self.compute_tf(tanslation, orientation,
-                                                 self.brf_frame_id, self.wrf_frame_id)
+                                                          self.brf_frame_id, self.wrf_frame_id)
 
     def update_tf_trf(self, tanslation=[0, 0, 0], orientation=[0, 0, 0]):
         """
@@ -238,7 +240,7 @@ class MecademicRobotROS_Driver():
         """
         with self._tf_lock:
             self._tf_transforms_list[1] = self.compute_tf(tanslation, orientation,
-                                                 self.frf_frame_id, self.trf_frame_id)
+                                                          self.frf_frame_id, self.trf_frame_id)
 
     def compute_tf(self, tanslation, orientation, source_frame_id, taget_frame_id):
         """
@@ -864,8 +866,8 @@ if __name__ == "__main__":
             high_performance=high_performance
         )
         mecademic_ros_driver.start_update_log_timer()
-        mecademic_ros_driver.ros_setup(tf_prefix=tf_prefix)  
-        
+        mecademic_ros_driver.ros_setup(tf_prefix=tf_prefix)
+
         rospy.spin()
     except Exception as e:
         rospy.logerr("MecademicDriver: {}".format(e))
