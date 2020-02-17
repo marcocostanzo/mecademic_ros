@@ -83,11 +83,12 @@ class MecademicRobotROS_Driver():
         self.wrf_frame_id = tf_prefix + "meca_wrf"
         self.frf_frame_id = tf_prefix + "meca_frf"
         self.trf_frame_id = tf_prefix + "meca_trf"
-        self.tf_static_broadcaster = tf2_ros.StaticTransformBroadcaster()
-        self.tf_static_list = [TransformStamped(), TransformStamped()]
+        #TF2
+        self._tf_lock = threading.Lock()
+        self._tf_transforms_list = [TransformStamped(), TransformStamped()]
         self.update_tf_wrf()
         self.update_tf_trf()
-        self.update_tf_static()
+        self.start_tf_publisher_timer()
 
         self.srv_activate = rospy.Service(
             'activate_robot', std_srvs.srv.Trigger, self.activate_srv_cb)
@@ -191,37 +192,58 @@ class MecademicRobotROS_Driver():
             msg.data = "[{}][{}]".format(message[0], message[1])
             self.pub_log.publish(msg)
 
-    def loop_on_log(self, rate=10):
+    def start_tf_publisher_timer(self, period=0.1):
         """
-        Loop forever to update the log
+        Start the tf publisher timer
         """
-        rospy.loginfo("Log Loop Enabled")
-        loop_rate = rospy.Rate(rate)
-        while not rospy.is_shutdown():
-            with self._robot_lock:
-                self.robot.mecademic_log.update_log(
-                    wait_for_new_messages=False)
-            loop_rate.sleep()
+        self._transform_broadcaster = tf2_ros.TransformBroadcaster()
+        self._tf_publisher_timer = rospy.Timer(rospy.Duration(period),self.tf_publisher_timer_cb)
+        rospy.loginfo("TF Publisher Enabled")
+
+    def tf_publisher_timer_cb(self,event):
+        """
+        Publish on \tf in a thread safe way
+        """
+        with self._tf_lock:
+            self._transform_broadcaster.sendTransform(self._tf_transforms_list)
+
+    def start_update_log_timer(self, period=0.1):
+        """
+        Start the update log timer
+        """
+        self.update_log_timer = rospy.Timer(rospy.Duration(period),self.update_log_timer_cb)
+        rospy.loginfo("Log Auto-Update Enabled")
+
+    def update_log_timer_cb(self,event):
+        """
+        Update the log in a thread-safe way
+        """
+        with self._robot_lock:
+            self.robot.mecademic_log.update_log(
+                wait_for_new_messages=False)
 
     def update_tf_wrf(self, tanslation=[0, 0, 0], orientation=[0, 0, 0]):
         """
-        Update the brf->wrf transform on /tf_static
+        Update the brf->wrf transform
+        translation and orientation are in mecademic convention
         """
-        self.tf_static_list[0] = self.compute_tf(tanslation, orientation,
+        with self._tf_lock:
+            self._tf_transforms_list[0] = self.compute_tf(tanslation, orientation,
                                                  self.brf_frame_id, self.wrf_frame_id)
-        self.update_tf_static()
 
     def update_tf_trf(self, tanslation=[0, 0, 0], orientation=[0, 0, 0]):
         """
-        Update the brf->wrf transform on /tf_static
+        Update the brf->wrf transform
+        translation and orientation are in mecademic convention
         """
-        self.tf_static_list[1] = self.compute_tf(tanslation, orientation,
+        with self._tf_lock:
+            self._tf_transforms_list[1] = self.compute_tf(tanslation, orientation,
                                                  self.frf_frame_id, self.trf_frame_id)
-        self.update_tf_static()
 
     def compute_tf(self, tanslation, orientation, source_frame_id, taget_frame_id):
         """
         compute the transform
+        translation and orientation are in mecademic convention
         """
 
         quaternion = tf.transformations.quaternion_from_euler(
@@ -241,12 +263,6 @@ class MecademicRobotROS_Driver():
 
         return static_transformStamped
 
-    def update_tf_static(self):
-        """
-        Update all static tf on /tf_static
-        """
-        self.tf_static_broadcaster.sendTransform(self.tf_static_list)
-
     def get_status_robot(self):
         """
         Get Status of the robot
@@ -259,7 +275,8 @@ class MecademicRobotROS_Driver():
         Convert a set pose req in mecademic convention
         """
         if not set_pose_req.pose.header.frame_id == target_frame_id:
-            raise Exception("The required pose must be in the frame " + target_frame_id)
+            raise Exception(
+                "The required pose must be in the frame " + target_frame_id)
 
         meca_req = mecademic_msgs.srv.SetMecaPoseRequest()
         meca_req.position.x = set_pose_req.pose.pose.position.x * 1000.0
@@ -293,7 +310,8 @@ class MecademicRobotROS_Driver():
         Warning, this updates the input
         """
         if not msg.header.frame_id == target_frame_id:
-            raise Exception("The required twist must be in the frame " + target_frame_id)
+            raise Exception(
+                "The required twist must be in the frame " + target_frame_id)
 
         msg.twist.linear.x *= 1000.0
         msg.twist.linear.y *= 1000.0
@@ -845,8 +863,10 @@ if __name__ == "__main__":
             home=home,
             high_performance=high_performance
         )
-        mecademic_ros_driver.ros_setup(tf_prefix=tf_prefix)
-        mecademic_ros_driver.loop_on_log()
+        mecademic_ros_driver.start_update_log_timer()
+        mecademic_ros_driver.ros_setup(tf_prefix=tf_prefix)  
+        
+        rospy.spin()
     except Exception as e:
         rospy.logerr("MecademicDriver: {}".format(e))
     finally:
