@@ -305,9 +305,6 @@ class MecademicRobotROS_Driver():
         meca_req.orientation.y = eul_xyz[1] * 180.0 / PI
         meca_req.orientation.z = eul_xyz[2] * 180.0 / PI
 
-        print("meca_req\n")
-        print(meca_req)
-
         return meca_req
 
     def set_meca_pose_res_2_set_pose_res(self, set_meca_pose_res):
