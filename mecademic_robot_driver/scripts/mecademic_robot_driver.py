@@ -13,6 +13,7 @@ import tf
 from math import pi as PI
 
 import threading
+from socket import  error as socket_error
 
 
 class MecademicRobotROS_Driver():
@@ -57,7 +58,17 @@ class MecademicRobotROS_Driver():
         """
         # Connect to the control interface
         rospy.loginfo("Conncting to the Robot Control Interface...")
-        self.robot.connect()
+        
+        connected = False
+        while not connected and not rospy.is_shutdown():
+            try:
+                self.robot.connect()
+                connected = True
+            except socket_error as error:
+                rospy.logwarn("Unable to connect to " + self.robot.address + ":" + str(self.robot.port) + " retry...")
+                rospy.logwarn(error)
+                rospy.sleep(3.0)
+        
         rospy.loginfo("Connected to the Robot Control Interface!")
         if activate:
             rospy.loginfo("Activating...")
@@ -206,6 +217,8 @@ class MecademicRobotROS_Driver():
         Publish on \tf in a thread safe way
         """
         with self._tf_lock:
+            for transform in self._tf_transforms_list:
+                transform.header.stamp = rospy.Time.now()
             self._transform_broadcaster.sendTransform(self._tf_transforms_list)
 
     def start_update_log_timer(self, period=0.1):

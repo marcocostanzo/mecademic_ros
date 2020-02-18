@@ -9,6 +9,7 @@ from mecademic_pydriver import RobotFeedback
 from math import pi as PI
 import tf
 
+from socket import error as socket_error
 
 class MecademicRobotROS_Feedback():
     """
@@ -32,7 +33,16 @@ class MecademicRobotROS_Feedback():
 
         # Connect to the robot
         rospy.loginfo("Conncting to the Robot Feedback Interface...")
-        self.feedback.connect()
+        connected = False
+        while not connected and not rospy.is_shutdown():
+            try:
+                self.feedback.connect()
+                connected = True
+            except socket_error as error:
+                rospy.logwarn("Unable to connect to " + self.feedback.address + ":" + str(self.feedback.port) + " retry...")
+                rospy.logwarn(error)
+                rospy.sleep(3.0)
+
         rospy.loginfo("Robot Feedback Interface!")
 
         self.joint_publisher = rospy.Publisher(
