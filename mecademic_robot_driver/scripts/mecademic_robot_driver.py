@@ -86,6 +86,9 @@ class MecademicRobotROS_Driver():
         Setup the ROS interface
         """
 
+        # PATCH
+        self.robot.SetVelTimeout(0.200)
+
         # for check_vel_timestamp
         self.last_vel_timestamp = rospy.Time.now()
 
