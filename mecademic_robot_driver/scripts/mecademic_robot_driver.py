@@ -132,7 +132,7 @@ class MecademicRobotROS_Driver():
         self.srv_move_joints = rospy.Service(
             'move_joints', mecademic_msgs.srv.SetJoints, self.move_joints_srv_cb)
         self.sub_move_joints_vel_meca_conv = rospy.Subscriber(
-            'meca_convention/command/joints_vel', mecademic_msgs.msg.Joints, callback=self.move_joints_vel_meca_conv_sub_cb, queue_size=1)
+            'command/meca_convention/joints_vel', mecademic_msgs.msg.Joints, callback=self.move_joints_vel_meca_conv_sub_cb, queue_size=1)
         self.sub_move_joints_vel = rospy.Subscriber(
             'command/joints_vel', mecademic_msgs.msg.Joints, callback=self.move_joints_vel_sub_cb, queue_size=1)
         self.srv_move_lin_meca_conv = rospy.Service(
