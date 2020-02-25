@@ -18,6 +18,7 @@
 #define MECADEMIC_ROS_CLIENT_H
 
 #include "geometry_msgs/Pose.h"
+#include "geometry_msgs/TwistStamped.h"
 #include "mecademic_msgs/Joints.h"
 #include "mecademic_msgs/SetJoints.h"
 #include "mecademic_msgs/SetPose.h"
@@ -43,7 +44,9 @@ class MecademicROSClient
 protected:
   ros::NodeHandle nh_;
 
-  ros::ServiceClient srv_client_move_lin_, srv_client_move_joints_, srv_client_set_trf_;
+  ros::ServiceClient srv_client_move_lin_, srv_client_move_joints_, srv_client_set_trf_, srv_client_set_wrf_;
+
+  ros::Publisher pub_vel_trf_;
 
   bool joints_on_fb_are_deg;
   bool position_on_fb_is_mm;
@@ -68,10 +71,21 @@ public:
   void move_joints(const mecademic_msgs::Joints& desired_joints);
 
   /*
+  Publish a twist command in TRF
+  */
+  void pub_twist_command_trf(const geometry_msgs::Twist& desired_twist);
+
+  /*
   Set the robot TRF
   TRF pose MUST be w.r.t. mecademic's FRF
   */
-  void set_trf(const geometry_msgs::PoseStamped& trf_pose);
+  void set_trf(const geometry_msgs::Pose& trf_pose);
+
+  /*
+  Set the robot WRF
+  WRF pose MUST be w.r.t. mecademic's BRF
+  */
+  void set_wrf(const geometry_msgs::Pose& wrf_pose);
 
   /*
     Get the current tool pose

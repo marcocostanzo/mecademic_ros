@@ -178,7 +178,7 @@ class MecademicRobotROS_Driver():
         self.srv_set_wrf_meca_conv = rospy.Service(
             'meca_convention/set_wrf', mecademic_msgs.srv.SetMecaPose, self.set_wrf_meca_conv_srv_cb)
         self.srv_set_wrf = rospy.Service(
-            'set_wrf', mecademic_msgs.srv.SetMecaPose, self.set_wrf_srv_cb)
+            'set_wrf', mecademic_msgs.srv.SetPose, self.set_wrf_srv_cb)
         self.srv_set_vel_timeout = rospy.Service(
             'set_vel_timeout', mecademic_msgs.srv.SetValue, self.set_vel_timeout_srv_cb)
 

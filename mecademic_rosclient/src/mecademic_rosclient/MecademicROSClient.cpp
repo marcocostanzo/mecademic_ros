@@ -44,10 +44,14 @@ MecademicROSClient::MecademicROSClient(const ros::NodeHandle& nh, const std::str
   srv_client_move_lin_ = nh_.serviceClient<mecademic_msgs::SetPose>("move_lin");
   srv_client_move_joints_ = nh_.serviceClient<mecademic_msgs::SetJoints>("move_joints");
   srv_client_set_trf_ = nh_.serviceClient<mecademic_msgs::SetPose>("set_trf");
+  srv_client_set_wrf_ = nh_.serviceClient<mecademic_msgs::SetPose>("set_wrf");
+
+  pub_vel_trf_ = nh_.advertise<geometry_msgs::TwistStamped>("command/vel_trf", 1);
 
   srv_client_move_lin_.waitForExistence();
   srv_client_move_joints_.waitForExistence();
   srv_client_set_trf_.waitForExistence();
+  srv_client_set_wrf_.waitForExistence();
 }
 
 /* Move the robot following a linear path, pose must be w.r.t. the robot's world frame
@@ -107,13 +111,28 @@ void MecademicROSClient::move_joints(const mecademic_msgs::Joints& desired_joint
 }
 
 /*
+  Publish a twist command in TRF
+*/
+void MecademicROSClient::pub_twist_command_trf(const geometry_msgs::Twist& desired_twist)
+{
+  geometry_msgs::TwistStamped cmd;
+  cmd.twist = desired_twist;
+  cmd.header.frame_id = trf_frame_id_;
+  cmd.header.stamp = ros::Time::now();
+
+  pub_vel_trf_.publish(cmd);
+}
+
+/*
 Set the robot TRF
 TRF pose MUST be w.r.t. mecademic's FRF
 */
-void MecademicROSClient::set_trf(const geometry_msgs::PoseStamped& trf_pose)
+void MecademicROSClient::set_trf(const geometry_msgs::Pose& trf_pose)
 {
   mecademic_msgs::SetPose srv_msg;
-  srv_msg.request.pose = trf_pose;
+  srv_msg.request.pose.pose = trf_pose;
+  srv_msg.request.pose.header.frame_id = frf_frame_id_;
+  srv_msg.request.pose.header.stamp = ros::Time::now();
 
   if (!srv_client_set_trf_.call(srv_msg))
   {
@@ -122,6 +141,27 @@ void MecademicROSClient::set_trf(const geometry_msgs::PoseStamped& trf_pose)
   if (!srv_msg.response.success)
   {
     throw std::runtime_error("MecademicROSClient::set_trf success is false");
+  }
+}
+
+/*
+Set the robot WRF
+WRF pose MUST be w.r.t. mecademic's BRF
+*/
+void MecademicROSClient::set_wrf(const geometry_msgs::Pose& wrf_pose)
+{
+  mecademic_msgs::SetPose srv_msg;
+  srv_msg.request.pose.pose = wrf_pose;
+  srv_msg.request.pose.header.frame_id = brf_frame_id_;
+  srv_msg.request.pose.header.stamp = ros::Time::now();
+
+  if (!srv_client_set_wrf_.call(srv_msg))
+  {
+    throw std::runtime_error("MecademicROSClient::set_wrf server error");
+  }
+  if (!srv_msg.response.success)
+  {
+    throw std::runtime_error("MecademicROSClient::set_wrf success is false");
   }
 }
 
