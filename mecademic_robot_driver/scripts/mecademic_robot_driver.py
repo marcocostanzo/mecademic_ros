@@ -88,6 +88,10 @@ class MecademicRobotROS_Driver():
 
         # PATCH
         self.robot.SetVelTimeout(0.200)
+        self.robot.SetMonitoringInterval(0.002)
+        self.robot.SetJointAcc(100.0)
+        self.robot.SetBlending(100.0)
+        self.robot.SetCartAcc(100.0)
 
         # for check_vel_timestamp
         self.last_vel_timestamp = rospy.Time.now()

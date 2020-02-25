@@ -18,7 +18,7 @@
 
 <!-- If activate a joint controller node (joint reference to vel command) -->
 <arg name="joints_controller" default="false"/>
-<arg name="joints_controller_gains" default="[3.0, 3.0, 3.0, 3.0, 3.0, 3.0]" />
+<arg name="joints_controller_gains" default="[8.0, 8.0, 8.0, 8.0, 8.0, 8.0]" />
 
 <node 
     name="robot_driver"  
