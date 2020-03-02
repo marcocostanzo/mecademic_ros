@@ -81,14 +81,14 @@ class MecademicRobotROS_Driver():
                 if high_performance:
                     self.high_performances()
 
-    def ros_setup(self, tf_prefix=""):
+    def ros_setup(self, tf_prefix="",monitoring_interval=0.002):
         """
         Setup the ROS interface
         """
 
         # PATCH
         self.robot.SetVelTimeout(0.200)
-        self.robot.SetMonitoringInterval(0.002)
+        self.robot.SetMonitoringInterval(monitoring_interval)
         self.robot.SetJointAcc(100.0)
         self.robot.SetBlending(100.0)
         self.robot.SetCartAcc(100.0)
@@ -874,6 +874,7 @@ if __name__ == "__main__":
     home = rospy.get_param('~home', True)
     high_performance = rospy.get_param('~high_performance', False)
     tf_prefix = rospy.get_param('~tf_prefix', "")
+    initial_monitoring_interval = rospy.get_param('~initial_monitoring_interval', 0.002)
 
     try:
         mecademic_ros_driver = MecademicRobotROS_Driver(ip_address=ip_address)
@@ -883,7 +884,7 @@ if __name__ == "__main__":
             high_performance=high_performance
         )
         mecademic_ros_driver.start_update_log_timer()
-        mecademic_ros_driver.ros_setup(tf_prefix=tf_prefix)
+        mecademic_ros_driver.ros_setup(tf_prefix=tf_prefix, monitoring_interval=initial_monitoring_interval)
 
         rospy.spin()
     except Exception as e:

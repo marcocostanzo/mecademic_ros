@@ -63,14 +63,14 @@ void MecademicROSClient::move_lin(const geometry_msgs::PoseStamped& desired_pose
   srv_msg.request.pose = desired_pose;
 
   // DBG
-  std::cout << "srv_move = \n" << srv_msg.request << std::endl;
-  std::cout << "Continue? ";
-  char ans;
-  std::cin >> ans;
-  if (!(ans == 'y' || ans == 'Y'))
-  {
-    throw "Error";
-  }
+  // std::cout << "srv_move = \n" << srv_msg.request << std::endl;
+  // std::cout << "Continue? ";
+  // char ans;
+  // std::cin >> ans;
+  // if (!(ans == 'y' || ans == 'Y'))
+  // {
+  //   throw "Error";
+  // }
 
   if (!srv_client_move_lin_.call(srv_msg))
   {
@@ -91,14 +91,14 @@ void MecademicROSClient::move_joints(const mecademic_msgs::Joints& desired_joint
   srv_msg.request.joints = desired_joints.joints;
 
   // DBG
-  std::cout << "srv_move_joints = \n" << srv_msg.request << std::endl;
-  std::cout << "Continue? ";
-  char ans;
-  std::cin >> ans;
-  if (!(ans == 'y' || ans == 'Y'))
-  {
-    throw "Error";
-  }
+  // std::cout << "srv_move_joints = \n" << srv_msg.request << std::endl;
+  // std::cout << "Continue? ";
+  // char ans;
+  // std::cin >> ans;
+  // if (!(ans == 'y' || ans == 'Y'))
+  // {
+  //   throw "Error";
+  // }
 
   if (!srv_client_move_joints_.call(srv_msg))
   {
@@ -351,9 +351,9 @@ void quaternion2RPY(const geometry_msgs::Quaternion& quaternion, double& roll, d
 {
   tf2::Quaternion tf_quat;
   tf2::convert(quaternion, tf_quat);
-  std::cout << "\n\nQUAT: \nx:" << tf_quat.getX() << "\ny: " << tf_quat.getY() << "\nz: " << tf_quat.getZ()
-            << "\nw: " << tf_quat.getW() << "\n\n"
-            << std::endl;
+  // std::cout << "\n\nQUAT: \nx:" << tf_quat.getX() << "\ny: " << tf_quat.getY() << "\nz: " << tf_quat.getZ()
+  //           << "\nw: " << tf_quat.getW() << "\n\n"
+  //           << std::endl;
   tf2::Matrix3x3 m(tf_quat);
   m.getRPY(yaw, pitch, roll);  // check this...
 }

@@ -6,6 +6,9 @@
 <!-- If true, put all limits to max value (velocity and acc limits) -->
 <arg name="high_performance" default="false" />
 
+<!-- Monitoring INterval to use at startup -->
+<arg name="initial_monitoring_interval" default="0.002" />
+
 <!-- If true activate the robot state publisher -->
 <arg name="robot_state_publisher" default="true" />
 <!-- URDF of the robot, you can use a custom one (for example to change the EE)
@@ -30,6 +33,7 @@
     <param name="ip_address" type="string" value="$(arg ip_address)"/>
     <param name="high_performance" type="bool" value="$(arg high_performance)"/>
     <param name="tf_prefix" value="$(arg meca500_tf_prefix)"/>
+    <param name="initial_monitoring_interval" value="$(arg initial_monitoring_interval)"/>
 </node>
 
 <node 
