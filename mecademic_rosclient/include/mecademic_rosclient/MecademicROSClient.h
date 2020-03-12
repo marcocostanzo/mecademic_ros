@@ -96,13 +96,15 @@ public:
    Wait for robot stop to desired pose
   */
   void wait_pose(const geometry_msgs::Pose& desired_pose, const ros::Duration& timeout = ros::Duration(-1),
-                 double epsilon_pose = 0.0005, double epsilon_rotation = 0.0005);
+                 double epsilon_pose = 0.0005, double epsilon_rotation = 0.0005,
+                 const boost::function<void()>& on_wait_cb = 0);
 
   /*
    Wait for robot stop to desired joint position
   */
   void wait_joint_position(const mecademic_msgs::Joints& desired_joints,
-                           const ros::Duration& timeout = ros::Duration(-1), double epsilon_joints = 0.01);
+                           const ros::Duration& timeout = ros::Duration(-1), double epsilon_joints = 0.01,
+                           const boost::function<void()>& on_wait_cb = 0);
 
 };  // endclass
 

@@ -198,7 +198,8 @@ geometry_msgs::PoseStamped MecademicROSClient::getToolPose(const ros::Duration& 
    Wait for robot stop to desired pose
 */
 void MecademicROSClient::wait_pose(const geometry_msgs::Pose& desired_pose, const ros::Duration& timeout,
-                                   double epsilon_pose, double epsilon_rotation)
+                                   double epsilon_pose, double epsilon_rotation,
+                                   const boost::function<void()>& on_wait_cb)
 {
   ros::Time start_time = ros::Time::now();
 
@@ -212,6 +213,10 @@ void MecademicROSClient::wait_pose(const geometry_msgs::Pose& desired_pose, cons
   msg_arrived = false;
   while (ros::ok())
   {
+    if (on_wait_cb)
+    {
+      on_wait_cb();
+    }
     if (msg_arrived)
     {
       double position_distance, rotation_distance;
@@ -239,7 +244,7 @@ void MecademicROSClient::wait_pose(const geometry_msgs::Pose& desired_pose, cons
  Wait for robot stop to desired joint position
 */
 void MecademicROSClient::wait_joint_position(const mecademic_msgs::Joints& desired_joints, const ros::Duration& timeout,
-                                             double epsilon_joints)
+                                             double epsilon_joints, const boost::function<void()>& on_wait_cb)
 {
   ros::Time start_time = ros::Time::now();
 
@@ -252,6 +257,10 @@ void MecademicROSClient::wait_joint_position(const mecademic_msgs::Joints& desir
   msg_arrived = false;
   while (ros::ok())
   {
+    if (on_wait_cb)
+    {
+      on_wait_cb();
+    }
     if (msg_arrived)
     {
       double distance = std_vect_distance(desired_joints.joints, joint_state.position);
@@ -269,7 +278,6 @@ void MecademicROSClient::wait_joint_position(const mecademic_msgs::Joints& desir
         throw timeout_exception("MecademicROSClient::wait_joint_position timeout");
       }
     }
-
     ros::spinOnce();
   }
 }
@@ -329,7 +337,7 @@ double std_vect_distance(const std::vector<double>& v1, const std::vector<double
   double distance = 0.0;
   for (int i = 0; i < v1.size(); i++)
   {
-    distance = pow(v1[i] - v2[i], 2);
+    distance += pow(v1[i] - v2[i], 2);
   }
   distance = sqrt(distance);
   return distance;
